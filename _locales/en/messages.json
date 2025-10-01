@@ -1,0 +1,527 @@
+{
+  "extensionName": {
+    "message": "Twitch Live Notifier",
+    "description": "Extension name"
+  },
+  "extensionDescription": {
+    "message": "Notify when selected Twitch streamers go live, and show live stream information in the popup.",
+    "description": "Extension description"
+  },
+  "extensionTitle": {
+    "message": "Twitch Live",
+    "description": "Extension title"
+  },
+  "streamsTab": {
+    "message": "Streams",
+    "description": "Streams tab label"
+  },
+  "channelsTab": {
+    "message": "Channels",
+    "description": "Channels tab label"
+  },
+  "settingsTab": {
+    "message": "Settings",
+    "description": "Settings tab label"
+  },
+  "loading": {
+    "message": "Loading...",
+    "description": "Loading text"
+  },
+  "checkingStreamStatus": {
+    "message": "Checking stream status",
+    "description": "Checking stream status text"
+  },
+  "noStreams": {
+    "message": "No streams",
+    "description": "No streams message"
+  },
+  "noStreamsDescription": {
+    "message": "No tracked streamers are currently live<br>Click the settings tab to add streamers",
+    "description": "No streams description"
+  },
+  "loadFailed": {
+    "message": "Load failed",
+    "description": "Load failed message"
+  },
+  "unableToLoadStreamData": {
+    "message": "Unable to load stream data",
+    "description": "Unable to load stream data message"
+  },
+  "streamsLive": {
+    "message": "$1 stream$2 live",
+    "description": "Streams live status message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "17"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "s"
+      }
+    }
+  },
+  "streamsOffline": {
+    "message": "$1 stream$2 offline",
+    "description": "Streams offline status message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "s"
+      }
+    }
+  },
+  "streamerManagement": {
+    "message": "Streamer Management",
+    "description": "Streamer management section title"
+  },
+  "channelInputPlaceholder": {
+    "message": "Enter Twitch login name or URL, separate multiple with commas",
+    "description": "Channel input placeholder"
+  },
+  "add": {
+    "message": "Add",
+    "description": "Add button"
+  },
+  "channelInputHelp": {
+    "message": "Enter the Twitch ID or URL of the streamer (e.g., kaicenat, https://www.twitch.tv/kaicenat)",
+    "description": "Channel input help text"
+  },
+  "twitchAuth": {
+    "message": "Twitch Authorization",
+    "description": "Twitch authorization section title"
+  },
+  "authorizeTwitchAccount": {
+    "message": "Authorize Twitch Account",
+    "description": "Authorize Twitch account button"
+  },
+  "authorizeHelp": {
+    "message": "Click the button above to authorize your Twitch account",
+    "description": "Authorization help text"
+  },
+  "autoTracking": {
+    "message": "Auto Tracking",
+    "description": "Auto tracking section title"
+  },
+  "autoFollowStreamers": {
+    "message": "Automatically fetch followed streamers",
+    "description": "Auto follow streamers checkbox"
+  },
+  "autoFollowHelp": {
+    "message": "When enabled, it will automatically sync streamers you follow on your Twitch account",
+    "description": "Auto follow help text"
+  },
+  "manualTriggerAutoFetch": {
+    "message": "Manually trigger auto fetch",
+    "description": "Manual trigger auto fetch button"
+  },
+  "manualTriggerHelp": {
+    "message": "If auto fetch fails, click this button to manually trigger",
+    "description": "Manual trigger help text"
+  },
+  "notificationSettings": {
+    "message": "Notification Settings",
+    "description": "Notification settings section title"
+  },
+  "muteNotifications": {
+    "message": "Mute notifications",
+    "description": "Mute notifications checkbox"
+  },
+  "hideOfflineStreamers": {
+    "message": "Hide offline streamers",
+    "description": "Hide offline streamers checkbox"
+  },
+  "hidePreviews": {
+    "message": "Hide previews",
+    "description": "Hide previews checkbox"
+  },
+  "checkInterval": {
+    "message": "Check interval (minutes)",
+    "description": "Check interval label"
+  },
+  "checkIntervalHelp": {
+    "message": "How often to check stream status, recommended 1-5 minutes",
+    "description": "Check interval help text"
+  },
+  "channelNotificationSettings": {
+    "message": "Channel Notification Settings",
+    "description": "Channel notification settings section title"
+  },
+  "channelNotificationHelp": {
+    "message": "Select channels to receive live notifications (only effective in auto fetch mode)",
+    "description": "Channel notification help text"
+  },
+  "noChannels": {
+    "message": "No channels",
+    "description": "No channels message"
+  },
+  "loadChannelsFailed": {
+    "message": "Failed to load channels",
+    "description": "Load channels failed message"
+  },
+  "remove": {
+    "message": "Remove",
+    "description": "Remove button"
+  },
+  "unknown": {
+    "message": "Unknown",
+    "description": "Unknown text"
+  },
+  "hours": {
+    "message": "hours",
+    "description": "Hours text"
+  },
+  "minutes": {
+    "message": "minutes",
+    "description": "Minutes text"
+  },
+  "liveStreamDuration": {
+    "message": "Live stream duration $1",
+    "description": "Live stream duration message",
+    "placeholders": {
+      "duration": {
+        "content": "$1",
+        "example": "2:30:45"
+      }
+    }
+  },
+  "offlineStreamers": {
+    "message": "Offline Streamers ($1)",
+    "description": "Offline streamers section title",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "offline": {
+    "message": "Offline",
+    "description": "Offline status"
+  },
+  "authorizing": {
+    "message": "Authorizing...",
+    "description": "Authorizing status"
+  },
+  "fetching": {
+    "message": "Fetching...",
+    "description": "Fetching status"
+  },
+  "authorizationSuccess": {
+    "message": "Authorization successful! You can now use Twitch features",
+    "description": "Authorization success message"
+  },
+  "authorizationFailed": {
+    "message": "Authorization failed: $1",
+    "description": "Authorization failed message",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "Unknown error"
+      }
+    }
+  },
+  "fetchSuccess": {
+    "message": "Fetch successful! Added $1 new followed streamers",
+    "description": "Fetch success message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "fetchComplete": {
+    "message": "Fetch complete! Synced $1 followed streamers (no new additions)",
+    "description": "Fetch complete message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "10"
+      }
+    }
+  },
+  "fetchFailed": {
+    "message": "Fetch failed: $1",
+    "description": "Fetch failed message",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "Unknown error"
+      }
+    }
+  },
+  "pleaseEnterChannelName": {
+    "message": "Please enter channel name",
+    "description": "Please enter channel name error"
+  },
+  "addFailed": {
+    "message": "Add failed: $1",
+    "description": "Add failed message",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "Channel not found"
+      }
+    }
+  },
+  "addedChannels": {
+    "message": "Added $1 channels",
+    "description": "Added channels success message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "addChannelFailed": {
+    "message": "Add channel failed",
+    "description": "Add channel failed message"
+  },
+  "channelRemoved": {
+    "message": "Channel removed",
+    "description": "Channel removed success message"
+  },
+  "settingsAutoSaved": {
+    "message": "Settings auto saved",
+    "description": "Settings auto saved message"
+  },
+  "deleteAllChannels": {
+    "message": "Delete All Channels",
+    "description": "Delete all channels button"
+  },
+  "deleteAllChannelsConfirm": {
+    "message": "Are you sure you want to delete all channels?<br>This action cannot be undone.",
+    "description": "Delete all channels confirmation message"
+  },
+  "allChannelsDeleted": {
+    "message": "All channels deleted",
+    "description": "All channels deleted success message"
+  },
+  "cancel": {
+    "message": "Cancel",
+    "description": "Cancel button"
+  },
+  "deleteFailed": {
+    "message": "Delete failed",
+    "description": "Delete failed message"
+  },
+  "selectAll": {
+    "message": "Select All",
+    "description": "Select all button"
+  },
+  "deselectAll": {
+    "message": "Deselect All",
+    "description": "Deselect all button"
+  },
+  "searchStreams": {
+    "message": "Search streamers...",
+    "description": "Search streams placeholder"
+  },
+  "searchChannels": {
+    "message": "Search channels...",
+    "description": "Search channels placeholder"
+  },
+  "channelManagement": {
+    "message": "Channel Management",
+    "description": "Channel management title"
+  },
+  "noChannelsDescription": {
+    "message": "No channels have been added yet<br>Please go to the settings tab to add channels",
+    "description": "No channels description"
+  },
+  "addedOn": {
+    "message": "Added on",
+    "description": "Added on label"
+  },
+  "followedOn": {
+    "message": "Followed on",
+    "description": "Followed on label"
+  },
+  "enableNotifications": {
+    "message": "Enable Notifications",
+    "description": "Enable notifications label"
+  },
+  "viewerCount": {
+    "message": "Viewers",
+    "description": "Viewer count label"
+  },
+  "confirmDeleteChannel": {
+    "message": "Are you sure you want to delete channel \"$1\"?",
+    "description": "Confirm delete channel message",
+    "placeholders": {
+      "channelName": {
+        "content": "$1",
+        "example": "kaicenat"
+      }
+    }
+  },
+  "trackedChannelsCount": {
+    "message": "$1 tracked channels",
+    "description": "Tracked channels count message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "streamStartedNotification": {
+    "message": "$1 started streaming!",
+    "description": "Stream started notification title",
+    "placeholders": {
+      "streamerName": {
+        "content": "$1",
+        "example": "kaicenat"
+      }
+    }
+  },
+  "streamLiveNotification": {
+    "message": "$1 is live!",
+    "description": "Stream live notification title",
+    "placeholders": {
+      "streamerName": {
+        "content": "$1",
+        "example": "kaicenat"
+      }
+    }
+  },
+  "testNotificationTitle": {
+    "message": "Test Notification",
+    "description": "Test notification title"
+  },
+  "testNotificationMessage": {
+    "message": "If you see this notification, the notification feature is working properly!",
+    "description": "Test notification message"
+  },
+  "settingsBackup": {
+    "message": "Settings Backup",
+    "description": "Settings backup section title"
+  },
+  "exportSettings": {
+    "message": "Export Settings",
+    "description": "Export settings button"
+  },
+  "importSettings": {
+    "message": "Import Settings",
+    "description": "Import settings button"
+  },
+  "settingsBackupHelp": {
+    "message": "Export settings to file, or import settings from file",
+    "description": "Settings backup help text"
+  },
+  "exportSuccess": {
+    "message": "Settings exported successfully",
+    "description": "Export success message"
+  },
+  "importSuccess": {
+    "message": "Settings imported successfully",
+    "description": "Import success message"
+  },
+  "importFailed": {
+    "message": "Import failed: $1",
+    "description": "Import failed message",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "Invalid file format"
+      }
+    }
+  },
+  "noFileSelected": {
+    "message": "Please select a file to import",
+    "description": "No file selected error"
+  },
+  "importConfirm": {
+    "message": "Are you sure you want to import settings?<br>This will overwrite existing settings.<br>Import time: $1",
+    "description": "Import confirmation message",
+    "placeholders": {
+      "timestamp": {
+        "content": "$1",
+        "example": "2024-01-01T12:00:00"
+      }
+    }
+  },
+  "confirmDelete": {
+    "message": "Confirm Delete",
+    "description": "Confirm delete button"
+  },
+  "confirmImport": {
+    "message": "Confirm Import",
+    "description": "Confirm import button"
+  },
+  "ready": {
+    "message": "Ready",
+    "description": "Ready status"
+  },
+  "authSuccessTitle": {
+    "message": "Authorization Successful - Twitch Live Notifier",
+    "description": "Auth success page title"
+  },
+  "authSuccessHeading": {
+    "message": "Authorization Successful",
+    "description": "Auth success heading"
+  },
+  "authSuccessMessage": {
+    "message": "Your Twitch account has been authorized successfully",
+    "description": "Auth success message"
+  },
+  "enableAutoFollowHint": {
+    "message": "Tip: To auto-fetch followed streamers, enable 'Auto Tracking' in Settings",
+    "description": "Hint after authorization to enable auto follow in settings"
+  }
+  ,
+  "accountCreatedAt": {
+    "message": "Account created: $1",
+    "description": "Account created at with localized date",
+    "placeholders": {
+      "date": {
+        "content": "$1",
+        "example": "Aug 19, 2018 5:44:31 PM"
+      }
+    }
+  }
+  ,
+  "followAgeYearsDays": {
+  "message": "Following for $1 year $2 day",
+    "description": "Follow age with years and days",
+    "placeholders": {
+      "years": { "content": "$1", "example": "2" },
+      "days": { "content": "$2", "example": "35" }
+    }
+  },
+  "followAgeYearsOnly": {
+  "message": "Following for $1 year",
+    "description": "Follow age with years only",
+    "placeholders": {
+      "years": { "content": "$1", "example": "3" }
+    }
+  },
+  "followAgeDaysOnly": {
+  "message": "Following for $1 day",
+    "description": "Follow age with days only",
+    "placeholders": {
+      "days": { "content": "$1", "example": "120" }
+    }
+  },
+  "syncComplete": {
+    "message": "Sync complete! Added $1 channels, removed $2 channels",
+    "description": "Sync complete message with additions and removals",
+    "placeholders": {
+      "added": { "content": "$1", "example": "2" },
+      "removed": { "content": "$2", "example": "1" }
+    }
+  },
+  "removedChannels": {
+    "message": "Removed $1 unfollowed channels",
+    "description": "Removed channels message",
+    "placeholders": {
+      "count": { "content": "$1", "example": "3" }
+    }
+  }
+}

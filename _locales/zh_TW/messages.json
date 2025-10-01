@@ -1,0 +1,527 @@
+{
+  "extensionName": {
+    "message": "Twitch 實況通知器",
+    "description": "Extension name"
+  },
+  "extensionDescription": {
+    "message": "當選定的 Twitch 實況主開台時通知，並在彈出視窗中顯示實況資訊。",
+    "description": "Extension description"
+  },
+  "extensionTitle": {
+    "message": "Twitch 實況",
+    "description": "Extension title"
+  },
+  "streamsTab": {
+    "message": "實況",
+    "description": "Streams tab label"
+  },
+  "channelsTab": {
+    "message": "頻道",
+    "description": "Channels tab label"
+  },
+  "settingsTab": {
+    "message": "設定",
+    "description": "Settings tab label"
+  },
+  "loading": {
+    "message": "載入中...",
+    "description": "Loading text"
+  },
+  "checkingStreamStatus": {
+    "message": "正在檢查實況狀態",
+    "description": "Checking stream status text"
+  },
+  "noStreams": {
+    "message": "沒有實況",
+    "description": "No streams message"
+  },
+  "noStreamsDescription": {
+    "message": "目前沒有追蹤的實況主在直播<br>點擊設定分頁新增實況主",
+    "description": "No streams description"
+  },
+  "loadFailed": {
+    "message": "載入失敗",
+    "description": "Load failed message"
+  },
+  "unableToLoadStreamData": {
+    "message": "無法載入實況資料",
+    "description": "Unable to load stream data message"
+  },
+  "streamsLive": {
+    "message": "$1 個實況直播中",
+    "description": "Streams live status message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "17"
+      },
+      "plural": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "streamsOffline": {
+    "message": "$1 個實況主離線",
+    "description": "Streams offline status message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "streamerManagement": {
+    "message": "直播管理",
+    "description": "Streamer management section title"
+  },
+  "channelInputPlaceholder": {
+    "message": "輸入 Twitch 登入名稱或網址，多個用逗號分隔",
+    "description": "Channel input placeholder"
+  },
+  "add": {
+    "message": "新增",
+    "description": "Add button"
+  },
+  "channelInputHelp": {
+    "message": "輸入實況主的 Twitch ID 或 網址（例如：kaicenat, https://www.twitch.tv/kaicenat）",
+    "description": "Channel input help text"
+  },
+  "twitchAuth": {
+    "message": "Twitch 授權",
+    "description": "Twitch authorization section title"
+  },
+  "authorizeTwitchAccount": {
+    "message": "授權 Twitch 帳號",
+    "description": "Authorize Twitch account button"
+  },
+  "authorizeHelp": {
+    "message": "點擊上方按鈕授權你的 Twitch 帳號",
+    "description": "Authorization help text"
+  },
+  "autoTracking": {
+    "message": "自動追蹤",
+    "description": "Auto tracking section title"
+  },
+  "autoFollowStreamers": {
+    "message": "自動抓取追隨的實況主",
+    "description": "Auto follow streamers checkbox"
+  },
+  "autoFollowHelp": {
+    "message": "啟用後會自動同步你 Twitch 帳號追隨的實況主",
+    "description": "Auto follow help text"
+  },
+  "manualTriggerAutoFetch": {
+    "message": "手動觸發自動抓取",
+    "description": "Manual trigger auto fetch button"
+  },
+  "manualTriggerHelp": {
+    "message": "如果自動抓取失敗，點擊此按鈕手動觸發",
+    "description": "Manual trigger help text"
+  },
+  "notificationSettings": {
+    "message": "其他設定",
+    "description": "Other settings section title"
+  },
+  "muteNotifications": {
+    "message": "靜音通知",
+    "description": "Mute notifications checkbox"
+  },
+  "hideOfflineStreamers": {
+    "message": "隱藏離線實況主",
+    "description": "Hide offline streamers checkbox"
+  },
+  "hidePreviews": {
+    "message": "隱藏預覽圖",
+    "description": "Hide previews checkbox"
+  },
+  "checkInterval": {
+    "message": "檢查間隔（分鐘）",
+    "description": "Check interval label"
+  },
+  "checkIntervalHelp": {
+    "message": "決定多久檢查一次實況狀態，建議設定 1-5 分鐘",
+    "description": "Check interval help text"
+  },
+  "channelNotificationSettings": {
+    "message": "頻道通知設定",
+    "description": "Channel notification settings section title"
+  },
+  "channelNotificationHelp": {
+    "message": "選擇要接收開台通知的頻道（僅在自動抓取模式下有效）",
+    "description": "Channel notification help text"
+  },
+  "noChannels": {
+    "message": "暫無頻道",
+    "description": "No channels message"
+  },
+  "loadChannelsFailed": {
+    "message": "載入頻道失敗",
+    "description": "Load channels failed message"
+  },
+  "remove": {
+    "message": "移除",
+    "description": "Remove button"
+  },
+  "unknown": {
+    "message": "未知",
+    "description": "Unknown text"
+  },
+  "hours": {
+    "message": "小時",
+    "description": "Hours text"
+  },
+  "minutes": {
+    "message": "分鐘",
+    "description": "Minutes text"
+  },
+  "liveStreamDuration": {
+    "message": "實況已進行 $1",
+    "description": "Live stream duration message",
+    "placeholders": {
+      "duration": {
+        "content": "$1",
+        "example": "2:30:45"
+      }
+    }
+  },
+  "offlineStreamers": {
+    "message": "離線實況主 ($1)",
+    "description": "Offline streamers section title",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "offline": {
+    "message": "離線",
+    "description": "Offline status"
+  },
+  "authorizing": {
+    "message": "授權中...",
+    "description": "Authorizing status"
+  },
+  "fetching": {
+    "message": "抓取中...",
+    "description": "Fetching status"
+  },
+  "authorizationSuccess": {
+    "message": "授權成功！現在可以使用 Twitch 功能了",
+    "description": "Authorization success message"
+  },
+  "authorizationFailed": {
+    "message": "授權失敗：$1",
+    "description": "Authorization failed message",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "未知錯誤"
+      }
+    }
+  },
+  "fetchSuccess": {
+    "message": "抓取成功！新增 $1 個追隨的實況主",
+    "description": "Fetch success message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "fetchComplete": {
+    "message": "抓取完成！已同步 $1 個追隨的實況主（無新增）",
+    "description": "Fetch complete message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "10"
+      }
+    }
+  },
+  "fetchFailed": {
+    "message": "抓取失敗：$1",
+    "description": "Fetch failed message",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "未知錯誤"
+      }
+    }
+  },
+  "pleaseEnterChannelName": {
+    "message": "請輸入頻道名稱",
+    "description": "Please enter channel name error"
+  },
+  "addFailed": {
+    "message": "新增失敗：$1",
+    "description": "Add failed message",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "找不到頻道"
+      }
+    }
+  },
+  "addedChannels": {
+    "message": "已新增 $1 個頻道",
+    "description": "Added channels success message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "addChannelFailed": {
+    "message": "新增頻道失敗",
+    "description": "Add channel failed message"
+  },
+  "channelRemoved": {
+    "message": "已移除頻道",
+    "description": "Channel removed success message"
+  },
+  "settingsAutoSaved": {
+    "message": "設定已自動保存",
+    "description": "Settings auto saved message"
+  },
+  "deleteAllChannels": {
+    "message": "刪除全部",
+    "description": "Delete all channels button"
+  },
+  "deleteAllChannelsConfirm": {
+    "message": "確定要刪除所有頻道嗎？<br>此操作無法復原。",
+    "description": "Delete all channels confirmation message"
+  },
+  "allChannelsDeleted": {
+    "message": "已刪除所有頻道",
+    "description": "All channels deleted success message"
+  },
+  "cancel": {
+    "message": "取消",
+    "description": "Cancel button"
+  },
+  "deleteFailed": {
+    "message": "刪除失敗",
+    "description": "Delete failed message"
+  },
+  "selectAll": {
+    "message": "全選",
+    "description": "Select all button"
+  },
+  "deselectAll": {
+    "message": "取消全選",
+    "description": "Deselect all button"
+  },
+  "searchStreams": {
+    "message": "搜尋實況主...",
+    "description": "Search streams placeholder"
+  },
+  "searchChannels": {
+    "message": "搜尋頻道...",
+    "description": "Search channels placeholder"
+  },
+  "channelManagement": {
+    "message": "頻道管理",
+    "description": "Channel management title"
+  },
+  "noChannelsDescription": {
+    "message": "尚未添加任何頻道<br>請前往設定分頁添加頻道",
+    "description": "No channels description"
+  },
+  "addedOn": {
+    "message": "添加於",
+    "description": "Added on label"
+  },
+  "followedOn": {
+    "message": "追蹤於",
+    "description": "Followed on label"
+  },
+  "enableNotifications": {
+    "message": "啟用通知",
+    "description": "Enable notifications label"
+  },
+  "settingsBackup": {
+    "message": "設定備份",
+    "description": "Settings backup section title"
+  },
+  "exportSettings": {
+    "message": "匯出設定",
+    "description": "Export settings button"
+  },
+  "importSettings": {
+    "message": "匯入設定",
+    "description": "Import settings button"
+  },
+  "settingsBackupHelp": {
+    "message": "匯出設定到檔案，或從檔案匯入設定",
+    "description": "Settings backup help text"
+  },
+  "exportSuccess": {
+    "message": "設定已成功匯出",
+    "description": "Export success message"
+  },
+  "importSuccess": {
+    "message": "設定已成功匯入",
+    "description": "Import success message"
+  },
+  "importFailed": {
+    "message": "匯入失敗：$1",
+    "description": "Import failed message",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "檔案格式錯誤"
+      }
+    }
+  },
+  "noFileSelected": {
+    "message": "請選擇要匯入的檔案",
+    "description": "No file selected error"
+  },
+  "importConfirm": {
+    "message": "確定要匯入設定嗎？<br>這將覆蓋現有的設定。<br>匯入時間：$1",
+    "description": "Import confirmation message",
+    "placeholders": {
+      "timestamp": {
+        "content": "$1",
+        "example": "2024-01-01T12:00:00"
+      }
+    }
+  },
+  "confirmDelete": {
+    "message": "確認刪除",
+    "description": "Confirm delete button"
+  },
+  "confirmImport": {
+    "message": "確認匯入",
+    "description": "Confirm import button"
+  },
+  "ready": {
+    "message": "就緒",
+    "description": "Ready status"
+  },
+  "viewerCount": {
+    "message": "觀眾人數",
+    "description": "Viewer count label"
+  },
+  "confirmDeleteChannel": {
+    "message": "確定要刪除頻道「$1」嗎？",
+    "description": "Confirm delete channel message",
+    "placeholders": {
+      "channelName": {
+        "content": "$1",
+        "example": "kaicenat"
+      }
+    }
+  },
+  "trackedChannelsCount": {
+    "message": "$1 個追蹤頻道",
+    "description": "Tracked channels count message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "streamStartedNotification": {
+    "message": "$1 開始實況啦！",
+    "description": "Stream started notification title",
+    "placeholders": {
+      "streamerName": {
+        "content": "$1",
+        "example": "kaicenat"
+      }
+    }
+  },
+  "streamLiveNotification": {
+    "message": "$1 正在實況！",
+    "description": "Stream live notification title",
+    "placeholders": {
+      "streamerName": {
+        "content": "$1",
+        "example": "kaicenat"
+      }
+    }
+  },
+  "testNotificationTitle": {
+    "message": "測試通知",
+    "description": "Test notification title"
+  },
+  "testNotificationMessage": {
+    "message": "如果你看到這個通知，表示通知功能正常工作！",
+    "description": "Test notification message"
+  },
+  "authSuccessTitle": {
+    "message": "授權成功 - Twitch 實況通知器",
+    "description": "Auth success page title"
+  },
+  "authSuccessHeading": {
+    "message": "授權成功",
+    "description": "Auth success heading"
+  },
+  "authSuccessMessage": {
+    "message": "您的 Twitch 帳號已成功授權",
+    "description": "Auth success message"
+  },
+  "enableAutoFollowHint": {
+    "message": "提示：若需自動抓取追蹤，請到設定頁面開啟「自動追蹤」",
+    "description": "Hint after authorization to enable auto follow in settings"
+  }
+  ,
+  "accountCreatedAt": {
+    "message": "帳號創立：$1",
+    "description": "Account created at with localized date",
+    "placeholders": {
+      "date": {
+        "content": "$1",
+        "example": "2018/8/19 下午5:44:31"
+      }
+    }
+  }
+  ,
+  "followAgeYearsDays": {
+    "message": "已追蹤 $1 年 $2 天",
+    "description": "Follow age with years and days",
+    "placeholders": {
+      "years": { "content": "$1", "example": "2" },
+      "days": { "content": "$2", "example": "35" }
+    }
+  },
+  "followAgeYearsOnly": {
+    "message": "已追蹤 $1 年",
+    "description": "Follow age with years only",
+    "placeholders": {
+      "years": { "content": "$1", "example": "3" }
+    }
+  },
+  "followAgeDaysOnly": {
+    "message": "已追蹤 $1 天",
+    "description": "Follow age with days only",
+    "placeholders": {
+      "days": { "content": "$1", "example": "120" }
+    }
+  },
+  "syncComplete": {
+    "message": "同步完成！新增 $1 個頻道，移除 $2 個頻道",
+    "description": "Sync complete message with additions and removals",
+    "placeholders": {
+      "added": { "content": "$1", "example": "2" },
+      "removed": { "content": "$2", "example": "1" }
+    }
+  },
+  "removedChannels": {
+    "message": "已移除 $1 個退追的頻道",
+    "description": "Removed channels message",
+    "placeholders": {
+      "count": { "content": "$1", "example": "3" }
+    }
+  }
+}

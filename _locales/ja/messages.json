@@ -1,0 +1,513 @@
+{
+  "extensionName": {
+    "message": "Twitch ライブ通知",
+    "description": "Extension name"
+  },
+  "extensionDescription": {
+    "message": "選択した Twitch ストリーマーがライブ配信を開始したときに通知し、ポップアップで配信情報を表示します。",
+    "description": "Extension description"
+  },
+  "extensionTitle": {
+    "message": "Twitch ライブ",
+    "description": "Extension title"
+  },
+  "streamsTab": {
+    "message": "配信",
+    "description": "Streams tab label"
+  },
+  "channelsTab": {
+    "message": "チャンネル",
+    "description": "Channels tab label"
+  },
+  "settingsTab": {
+    "message": "設定",
+    "description": "Settings tab label"
+  },
+  "loading": {
+    "message": "読み込み中...",
+    "description": "Loading text"
+  },
+  "checkingStreamStatus": {
+    "message": "配信ステータスを確認中",
+    "description": "Checking stream status text"
+  },
+  "noStreams": {
+    "message": "配信なし",
+    "description": "No streams message"
+  },
+  "noStreamsDescription": {
+    "message": "現在追跡中のストリーマーはライブ配信していません<br>設定タブをクリックしてストリーマーを追加してください",
+    "description": "No streams description"
+  },
+  "loadFailed": {
+    "message": "読み込み失敗",
+    "description": "Load failed message"
+  },
+  "unableToLoadStreamData": {
+    "message": "配信データを読み込めません",
+    "description": "Unable to load stream data message"
+  },
+  "streamsLive": {
+    "message": "$1 件の配信がライブ中",
+    "description": "Streams live status message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "17"
+      },
+      "plural": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "streamsOffline": {
+    "message": "$1 人のストリーマーがオフライン",
+    "description": "Streams offline status message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "streamerManagement": {
+    "message": "配信者管理",
+    "description": "Streamer management section title"
+  },
+  "channelInputPlaceholder": {
+    "message": "Twitch ログイン名またはURLを入力、複数はカンマで区切り",
+    "description": "Channel input placeholder"
+  },
+  "add": {
+    "message": "追加",
+    "description": "Add button"
+  },
+  "channelInputHelp": {
+    "message": "ストリーマーの Twitch ID または URL を入力（例：kaicenat, https://www.twitch.tv/kaicenat）",
+    "description": "Channel input help text"
+  },
+  "twitchAuth": {
+    "message": "Twitch 認証",
+    "description": "Twitch authorization section title"
+  },
+  "authorizeTwitchAccount": {
+    "message": "Twitch アカウントを認証",
+    "description": "Authorize Twitch account button"
+  },
+  "authorizeHelp": {
+    "message": "上記のボタンをクリックして Twitch アカウントを認証してください",
+    "description": "Authorization help text"
+  },
+  "autoTracking": {
+    "message": "自動追跡",
+    "description": "Auto tracking section title"
+  },
+  "autoFollowStreamers": {
+    "message": "フォロー中のストリーマーを自動取得",
+    "description": "Auto follow streamers checkbox"
+  },
+  "autoFollowHelp": {
+    "message": "有効にすると、Twitch アカウントでフォローしているストリーマーが自動的に同期されます",
+    "description": "Auto follow help text"
+  },
+  "manualTriggerAutoFetch": {
+    "message": "自動取得を手動でトリガー",
+    "description": "Manual trigger auto fetch button"
+  },
+  "manualTriggerHelp": {
+    "message": "自動取得が失敗した場合、このボタンをクリックして手動でトリガーしてください",
+    "description": "Manual trigger help text"
+  },
+  "notificationSettings": {
+    "message": "通知設定",
+    "description": "Notification settings section title"
+  },
+  "muteNotifications": {
+    "message": "通知をミュート",
+    "description": "Mute notifications checkbox"
+  },
+  "hideOfflineStreamers": {
+    "message": "オフラインのストリーマーを非表示",
+    "description": "Hide offline streamers checkbox"
+  },
+  "hidePreviews": {
+    "message": "プレビューを非表示",
+    "description": "Hide previews checkbox"
+  },
+  "checkInterval": {
+    "message": "チェック間隔（分）",
+    "description": "Check interval label"
+  },
+  "checkIntervalHelp": {
+    "message": "配信ステータスをチェックする頻度、1-5分を推奨",
+    "description": "Check interval help text"
+  },
+  "channelNotificationSettings": {
+    "message": "チャンネル通知設定",
+    "description": "Channel notification settings section title"
+  },
+  "channelNotificationHelp": {
+    "message": "ライブ通知を受け取るチャンネルを選択（自動取得モードでのみ有効）",
+    "description": "Channel notification help text"
+  },
+  "noChannels": {
+    "message": "チャンネルなし",
+    "description": "No channels message"
+  },
+  "noChannelsDescription": {
+    "message": "まだチャンネルが追加されていません<br>設定タブでチャンネルを追加してください",
+    "description": "No channels description"
+  },
+  "loadChannelsFailed": {
+    "message": "チャンネルの読み込みに失敗",
+    "description": "Load channels failed message"
+  },
+  "remove": {
+    "message": "削除",
+    "description": "Remove button"
+  },
+  "unknown": {
+    "message": "不明",
+    "description": "Unknown text"
+  },
+  "hours": {
+    "message": "時間",
+    "description": "Hours text"
+  },
+  "minutes": {
+    "message": "分",
+    "description": "Minutes text"
+  },
+  "liveStreamDuration": {
+    "message": "ライブ配信時間 $1",
+    "description": "Live stream duration message",
+    "placeholders": {
+      "duration": {
+        "content": "$1",
+        "example": "2:30:45"
+      }
+    }
+  },
+  "offlineStreamers": {
+    "message": "オフラインストリーマー ($1)",
+    "description": "Offline streamers section title",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "offline": {
+    "message": "オフライン",
+    "description": "Offline status"
+  },
+  "authorizing": {
+    "message": "認証中...",
+    "description": "Authorizing status"
+  },
+  "fetching": {
+    "message": "取得中...",
+    "description": "Fetching status"
+  },
+  "authorizationSuccess": {
+    "message": "認証成功！Twitch 機能を使用できます",
+    "description": "Authorization success message"
+  },
+  "authorizationFailed": {
+    "message": "認証失敗：$1",
+    "description": "Authorization failed message",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "不明なエラー"
+      }
+    }
+  },
+  "fetchSuccess": {
+    "message": "取得成功！$1 人の新しいフォローストリーマーを追加",
+    "description": "Fetch success message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "fetchComplete": {
+    "message": "取得完了！$1 人のフォローストリーマーを同期（新規追加なし）",
+    "description": "Fetch complete message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "10"
+      }
+    }
+  },
+  "fetchFailed": {
+    "message": "取得失敗：$1",
+    "description": "Fetch failed message",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "不明なエラー"
+      }
+    }
+  },
+  "pleaseEnterChannelName": {
+    "message": "チャンネル名を入力してください",
+    "description": "Please enter channel name error"
+  },
+  "addFailed": {
+    "message": "追加失敗：$1",
+    "description": "Add failed message",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "チャンネルが見つかりません"
+      }
+    }
+  },
+  "addedChannels": {
+    "message": "$1 個のチャンネルを追加",
+    "description": "Added channels success message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "addChannelFailed": {
+    "message": "チャンネル追加に失敗",
+    "description": "Add channel failed message"
+  },
+  "channelRemoved": {
+    "message": "チャンネルを削除",
+    "description": "Channel removed success message"
+  },
+  "settingsAutoSaved": {
+    "message": "設定を自動保存",
+    "description": "Settings auto saved message"
+  },
+  "deleteAllChannels": {
+    "message": "すべてのチャンネルを削除",
+    "description": "Delete all channels button"
+  },
+  "deleteAllChannelsConfirm": {
+    "message": "すべてのチャンネルを削除してもよろしいですか？<br>この操作は元に戻せません。",
+    "description": "Delete all channels confirmation message"
+  },
+  "allChannelsDeleted": {
+    "message": "すべてのチャンネルを削除しました",
+    "description": "All channels deleted success message"
+  },
+  "cancel": {
+    "message": "キャンセル",
+    "description": "Cancel button"
+  },
+  "deleteFailed": {
+    "message": "削除に失敗しました",
+    "description": "Delete failed message"
+  },
+  "selectAll": {
+    "message": "すべて選択",
+    "description": "Select all button"
+  },
+  "deselectAll": {
+    "message": "すべて解除",
+    "description": "Deselect all button"
+  },
+  "searchStreams": {
+    "message": "配信者を検索...",
+    "description": "Search streams placeholder"
+  },
+  "searchChannels": {
+    "message": "チャンネルを検索...",
+    "description": "Search channels placeholder"
+  },
+  "channelManagement": {
+    "message": "チャンネル管理",
+    "description": "Channel management title"
+  },
+  
+  "addedOn": {
+    "message": "追加日",
+    "description": "Added on label"
+  },
+  "followedOn": {
+    "message": "フォロー日",
+    "description": "Followed on label"
+  },
+  "enableNotifications": {
+    "message": "通知を有効にする",
+    "description": "Enable notifications label"
+  },
+  "viewerCount": {
+    "message": "視聴者数",
+    "description": "Viewer count label"
+  },
+  "confirmDeleteChannel": {
+    "message": "チャンネル「$1」を削除してもよろしいですか？",
+    "description": "Confirm delete channel message",
+    "placeholders": {
+      "channelName": {
+        "content": "$1",
+        "example": "kaicenat"
+      }
+    }
+  },
+  "trackedChannelsCount": {
+    "message": "$1 個の追跡チャンネル",
+    "description": "Tracked channels count message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "streamStartedNotification": {
+    "message": "$1 が配信を開始しました！",
+    "description": "Stream started notification title",
+    "placeholders": {
+      "streamerName": {
+        "content": "$1",
+        "example": "kaicenat"
+      }
+    }
+  },
+  "streamLiveNotification": {
+    "message": "$1 がライブ配信中です！",
+    "description": "Stream live notification title",
+    "placeholders": {
+      "streamerName": {
+        "content": "$1",
+        "example": "kaicenat"
+      }
+    }
+  },
+  "testNotificationTitle": {
+    "message": "テスト通知",
+    "description": "Test notification title"
+  },
+  "testNotificationMessage": {
+    "message": "この通知が表示されれば、通知機能が正常に動作しています！",
+    "description": "Test notification message"
+  },
+  "settingsBackup": {
+    "message": "設定バックアップ",
+    "description": "Settings backup section title"
+  },
+  "exportSettings": {
+    "message": "設定をエクスポート",
+    "description": "Export settings button"
+  },
+  "importSettings": {
+    "message": "設定をインポート",
+    "description": "Import settings button"
+  },
+  "settingsBackupHelp": {
+    "message": "設定をファイルにエクスポート、またはファイルからインポート",
+    "description": "Settings backup help text"
+  },
+  "exportSuccess": {
+    "message": "設定が正常にエクスポートされました",
+    "description": "Export success message"
+  },
+  "importSuccess": {
+    "message": "設定が正常にインポートされました",
+    "description": "Import success message"
+  },
+  "importFailed": {
+    "message": "インポートに失敗しました：$1",
+    "description": "Import failed message",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "無効なファイル形式"
+      }
+    }
+  },
+  "noFileSelected": {
+    "message": "インポートするファイルを選択してください",
+    "description": "No file selected error"
+  },
+  "importConfirm": {
+    "message": "設定をインポートしてもよろしいですか？<br>既存の設定が上書きされます。<br>インポート時間：$1",
+    "description": "Import confirmation message",
+    "placeholders": {
+      "timestamp": {
+        "content": "$1",
+        "example": "2024-01-01T12:00:00"
+      }
+    }
+  },
+  "confirmDelete": {
+    "message": "削除を確認",
+    "description": "Confirm delete button"
+  },
+  "confirmImport": {
+    "message": "インポートを確認",
+    "description": "Confirm import button"
+  },
+  "ready": {
+    "message": "準備完了",
+    "description": "Ready status"
+  },
+  "authSuccessTitle": {
+    "message": "認証成功 - Twitch ライブ通知",
+    "description": "Auth success page title"
+  },
+  "authSuccessHeading": {
+    "message": "認証成功",
+    "description": "Auth success heading"
+  },
+  "authSuccessMessage": {
+    "message": "Twitch アカウントの認証が完了しました",
+    "description": "Auth success message"
+  },
+  "enableAutoFollowHint": {
+    "message": "ヒント：フォロー中のストリーマーを自動取得するには、設定で『自動追跡』を有効にしてください",
+    "description": "Hint after authorization to enable auto follow in settings"
+  }
+  ,
+  "accountCreatedAt": {
+    "message": "アカウント作成: $1",
+    "description": "Account created at with localized date",
+    "placeholders": {
+      "date": {
+        "content": "$1",
+        "example": "2018/08/19 17:44:31"
+      }
+    }
+  }
+  ,
+  "followAgeYearsDays": {
+    "message": "$1 年 $2 日フォロー中",
+    "description": "Follow age with years and days",
+    "placeholders": {
+      "years": { "content": "$1", "example": "2" },
+      "days": { "content": "$2", "example": "35" }
+    }
+  },
+  "followAgeYearsOnly": {
+    "message": "$1 年フォロー中",
+    "description": "Follow age with years only",
+    "placeholders": {
+      "years": { "content": "$1", "example": "3" }
+    }
+  },
+  "followAgeDaysOnly": {
+    "message": "$1 日フォロー中",
+    "description": "Follow age with days only",
+    "placeholders": {
+      "days": { "content": "$1", "example": "120" }
+    }
+  }
+}

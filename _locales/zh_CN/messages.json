@@ -1,0 +1,513 @@
+{
+  "extensionName": {
+    "message": "Twitch 直播通知器",
+    "description": "Extension name"
+  },
+  "extensionDescription": {
+    "message": "当选定的 Twitch 主播开播时通知，并在弹出窗口中显示直播资讯。",
+    "description": "Extension description"
+  },
+  "extensionTitle": {
+    "message": "Twitch 直播",
+    "description": "Extension title"
+  },
+  "streamsTab": {
+    "message": "直播",
+    "description": "Streams tab label"
+  },
+  "channelsTab": {
+    "message": "频道",
+    "description": "Channels tab label"
+  },
+  "settingsTab": {
+    "message": "设置",
+    "description": "Settings tab label"
+  },
+  "loading": {
+    "message": "加载中...",
+    "description": "Loading text"
+  },
+  "checkingStreamStatus": {
+    "message": "正在检查直播状态",
+    "description": "Checking stream status text"
+  },
+  "noStreams": {
+    "message": "没有直播",
+    "description": "No streams message"
+  },
+  "noStreamsDescription": {
+    "message": "目前没有追踪的主播在直播<br>点击设置标签页添加主播",
+    "description": "No streams description"
+  },
+  "loadFailed": {
+    "message": "加载失败",
+    "description": "Load failed message"
+  },
+  "unableToLoadStreamData": {
+    "message": "无法加载直播数据",
+    "description": "Unable to load stream data message"
+  },
+  "streamsLive": {
+    "message": "$1 个直播中",
+    "description": "Streams live status message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "17"
+      },
+      "plural": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "streamsOffline": {
+    "message": "$1 个主播离线",
+    "description": "Streams offline status message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "streamerManagement": {
+    "message": "主播管理",
+    "description": "Streamer management section title"
+  },
+  "channelInputPlaceholder": {
+    "message": "输入 Twitch 登录名或网址，多个用逗号分隔",
+    "description": "Channel input placeholder"
+  },
+  "add": {
+    "message": "添加",
+    "description": "Add button"
+  },
+  "channelInputHelp": {
+    "message": "输入主播的 Twitch ID 或 网址（例如：kaicenat, https://www.twitch.tv/kaicenat）",
+    "description": "Channel input help text"
+  },
+  "twitchAuth": {
+    "message": "Twitch 授权",
+    "description": "Twitch authorization section title"
+  },
+  "authorizeTwitchAccount": {
+    "message": "授权 Twitch 账号",
+    "description": "Authorize Twitch account button"
+  },
+  "authorizeHelp": {
+    "message": "点击上方按钮授权你的 Twitch 账号",
+    "description": "Authorization help text"
+  },
+  "autoTracking": {
+    "message": "自动追踪",
+    "description": "Auto tracking section title"
+  },
+  "autoFollowStreamers": {
+    "message": "自动获取关注的主播",
+    "description": "Auto follow streamers checkbox"
+  },
+  "autoFollowHelp": {
+    "message": "启用后会自动同步你 Twitch 账号关注的主播",
+    "description": "Auto follow help text"
+  },
+  "manualTriggerAutoFetch": {
+    "message": "手动触发自动获取",
+    "description": "Manual trigger auto fetch button"
+  },
+  "manualTriggerHelp": {
+    "message": "如果自动获取失败，点击此按钮手动触发",
+    "description": "Manual trigger help text"
+  },
+  "notificationSettings": {
+    "message": "通知设置",
+    "description": "Notification settings section title"
+  },
+  "muteNotifications": {
+    "message": "静音通知",
+    "description": "Mute notifications checkbox"
+  },
+  "hideOfflineStreamers": {
+    "message": "隐藏离线主播",
+    "description": "Hide offline streamers checkbox"
+  },
+  "hidePreviews": {
+    "message": "隐藏预览图",
+    "description": "Hide previews checkbox"
+  },
+  "checkInterval": {
+    "message": "检查间隔（分钟）",
+    "description": "Check interval label"
+  },
+  "checkIntervalHelp": {
+    "message": "决定多久检查一次直播状态，建议设置 1-5 分钟",
+    "description": "Check interval help text"
+  },
+  "channelNotificationSettings": {
+    "message": "频道通知设置",
+    "description": "Channel notification settings section title"
+  },
+  "channelNotificationHelp": {
+    "message": "选择要接收开播通知的频道（仅在自动获取模式下有效）",
+    "description": "Channel notification help text"
+  },
+  "noChannels": {
+    "message": "暂无频道",
+    "description": "No channels message"
+  },
+  "noChannelsDescription": {
+    "message": "尚未添加任何频道<br>请前往设置页面添加频道",
+    "description": "No channels description"
+  },
+  "loadChannelsFailed": {
+    "message": "加载频道失败",
+    "description": "Load channels failed message"
+  },
+  "remove": {
+    "message": "移除",
+    "description": "Remove button"
+  },
+  "unknown": {
+    "message": "未知",
+    "description": "Unknown text"
+  },
+  "hours": {
+    "message": "小时",
+    "description": "Hours text"
+  },
+  "minutes": {
+    "message": "分钟",
+    "description": "Minutes text"
+  },
+  "liveStreamDuration": {
+    "message": "直播已进行 $1",
+    "description": "Live stream duration message",
+    "placeholders": {
+      "duration": {
+        "content": "$1",
+        "example": "2:30:45"
+      }
+    }
+  },
+  "offlineStreamers": {
+    "message": "离线主播 ($1)",
+    "description": "Offline streamers section title",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "offline": {
+    "message": "离线",
+    "description": "Offline status"
+  },
+  "authorizing": {
+    "message": "授权中...",
+    "description": "Authorizing status"
+  },
+  "fetching": {
+    "message": "获取中...",
+    "description": "Fetching status"
+  },
+  "authorizationSuccess": {
+    "message": "授权成功！现在可以使用 Twitch 功能了",
+    "description": "Authorization success message"
+  },
+  "authorizationFailed": {
+    "message": "授权失败：$1",
+    "description": "Authorization failed message",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "未知错误"
+      }
+    }
+  },
+  "fetchSuccess": {
+    "message": "获取成功！新增 $1 个关注的主播",
+    "description": "Fetch success message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "fetchComplete": {
+    "message": "获取完成！已同步 $1 个关注的主播（无新增）",
+    "description": "Fetch complete message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "10"
+      }
+    }
+  },
+  "fetchFailed": {
+    "message": "获取失败：$1",
+    "description": "Fetch failed message",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "未知错误"
+      }
+    }
+  },
+  "pleaseEnterChannelName": {
+    "message": "请输入频道名称",
+    "description": "Please enter channel name error"
+  },
+  "addFailed": {
+    "message": "添加失败：$1",
+    "description": "Add failed message",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "找不到频道"
+      }
+    }
+  },
+  "addedChannels": {
+    "message": "已添加 $1 个频道",
+    "description": "Added channels success message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "addChannelFailed": {
+    "message": "添加频道失败",
+    "description": "Add channel failed message"
+  },
+  "channelRemoved": {
+    "message": "已移除频道",
+    "description": "Channel removed success message"
+  },
+  "settingsAutoSaved": {
+    "message": "设置已自动保存",
+    "description": "Settings auto saved message"
+  },
+  "deleteAllChannels": {
+    "message": "删除所有频道",
+    "description": "Delete all channels button"
+  },
+  "deleteAllChannelsConfirm": {
+    "message": "确定要删除所有频道吗？<br>此操作无法恢复。",
+    "description": "Delete all channels confirmation message"
+  },
+  "allChannelsDeleted": {
+    "message": "已删除所有频道",
+    "description": "All channels deleted success message"
+  },
+  "cancel": {
+    "message": "取消",
+    "description": "Cancel button"
+  },
+  "deleteFailed": {
+    "message": "删除失败",
+    "description": "Delete failed message"
+  },
+  "selectAll": {
+    "message": "全选",
+    "description": "Select all button"
+  },
+  "deselectAll": {
+    "message": "取消全选",
+    "description": "Deselect all button"
+  },
+  "searchStreams": {
+    "message": "搜索主播...",
+    "description": "Search streams placeholder"
+  },
+  "searchChannels": {
+    "message": "搜索频道...",
+    "description": "Search channels placeholder"
+  },
+  "channelManagement": {
+    "message": "频道管理",
+    "description": "Channel management title"
+  },
+  
+  "addedOn": {
+    "message": "添加于",
+    "description": "Added on label"
+  },
+  "followedOn": {
+    "message": "关注于",
+    "description": "Followed on label"
+  },
+  "enableNotifications": {
+    "message": "启用通知",
+    "description": "Enable notifications label"
+  },
+  "viewerCount": {
+    "message": "观众人数",
+    "description": "Viewer count label"
+  },
+  "confirmDeleteChannel": {
+    "message": "确定要删除频道「$1」吗？",
+    "description": "Confirm delete channel message",
+    "placeholders": {
+      "channelName": {
+        "content": "$1",
+        "example": "kaicenat"
+      }
+    }
+  },
+  "trackedChannelsCount": {
+    "message": "$1 个追踪频道",
+    "description": "Tracked channels count message",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "streamStartedNotification": {
+    "message": "$1 开始直播啦！",
+    "description": "Stream started notification title",
+    "placeholders": {
+      "streamerName": {
+        "content": "$1",
+        "example": "kaicenat"
+      }
+    }
+  },
+  "streamLiveNotification": {
+    "message": "$1 正在直播！",
+    "description": "Stream live notification title",
+    "placeholders": {
+      "streamerName": {
+        "content": "$1",
+        "example": "kaicenat"
+      }
+    }
+  },
+  "testNotificationTitle": {
+    "message": "测试通知",
+    "description": "Test notification title"
+  },
+  "testNotificationMessage": {
+    "message": "如果你看到这个通知，表示通知功能正常工作！",
+    "description": "Test notification message"
+  },
+  "settingsBackup": {
+    "message": "设置备份",
+    "description": "Settings backup section title"
+  },
+  "exportSettings": {
+    "message": "导出设置",
+    "description": "Export settings button"
+  },
+  "importSettings": {
+    "message": "导入设置",
+    "description": "Import settings button"
+  },
+  "settingsBackupHelp": {
+    "message": "导出设置到文件，或从文件导入设置",
+    "description": "Settings backup help text"
+  },
+  "exportSuccess": {
+    "message": "设置已成功导出",
+    "description": "Export success message"
+  },
+  "importSuccess": {
+    "message": "设置已成功导入",
+    "description": "Import success message"
+  },
+  "importFailed": {
+    "message": "导入失败：$1",
+    "description": "Import failed message",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "文件格式错误"
+      }
+    }
+  },
+  "noFileSelected": {
+    "message": "请选择要导入的文件",
+    "description": "No file selected error"
+  },
+  "importConfirm": {
+    "message": "确定要导入设置吗？<br>这将覆盖现有的设置。<br>导入时间：$1",
+    "description": "Import confirmation message",
+    "placeholders": {
+      "timestamp": {
+        "content": "$1",
+        "example": "2024-01-01T12:00:00"
+      }
+    }
+  },
+  "confirmDelete": {
+    "message": "确认删除",
+    "description": "Confirm delete button"
+  },
+  "confirmImport": {
+    "message": "确认导入",
+    "description": "Confirm import button"
+  },
+  "ready": {
+    "message": "就绪",
+    "description": "Ready status"
+  },
+  "authSuccessTitle": {
+    "message": "授权成功 - Twitch 直播通知器",
+    "description": "Auth success page title"
+  },
+  "authSuccessHeading": {
+    "message": "授权成功",
+    "description": "Auth success heading"
+  },
+  "authSuccessMessage": {
+    "message": "您的 Twitch 账号已成功授权",
+    "description": "Auth success message"
+  },
+  "enableAutoFollowHint": {
+    "message": "提示：若需自动抓取追踪，请到设置页面开启“自动追踪”",
+    "description": "Hint after authorization to enable auto follow in settings"
+  }
+  ,
+  "accountCreatedAt": {
+    "message": "账号创建：$1",
+    "description": "Account created at with localized date",
+    "placeholders": {
+      "date": {
+        "content": "$1",
+        "example": "2018/8/19 下午5:44:31"
+      }
+    }
+  }
+  ,
+  "followAgeYearsDays": {
+    "message": "已关注 $1 年 $2 天",
+    "description": "Follow age with years and days",
+    "placeholders": {
+      "years": { "content": "$1", "example": "2" },
+      "days": { "content": "$2", "example": "35" }
+    }
+  },
+  "followAgeYearsOnly": {
+    "message": "已关注 $1 年",
+    "description": "Follow age with years only",
+    "placeholders": {
+      "years": { "content": "$1", "example": "3" }
+    }
+  },
+  "followAgeDaysOnly": {
+    "message": "已关注 $1 天",
+    "description": "Follow age with days only",
+    "placeholders": {
+      "days": { "content": "$1", "example": "120" }
+    }
+  }
+}
