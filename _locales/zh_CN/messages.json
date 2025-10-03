@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "Twitch 直播通知器",
+    "message": "Twitch 直播通知器 | 聊天室翻译",
     "description": "Extension name"
   },
   "extensionDescription": {
-    "message": "当选定的 Twitch 主播开播时通知，并在弹出窗口中显示直播资讯。",
+    "message": "当选定的 Twitch 主播开播时通知，并在弹出窗口中显示直播资讯。包含聊天室翻译与多语言支持。",
     "description": "Extension description"
   },
   "extensionTitle": {
@@ -475,6 +475,31 @@
   "enableAutoFollowHint": {
     "message": "提示：若需自动抓取追踪，请到设置页面开启“自动追踪”",
     "description": "Hint after authorization to enable auto follow in settings"
+  }
+  ,
+  "chatTranslationSettings": {
+    "message": "聊天室翻译设置",
+    "description": "Chat translation settings section title"
+  },
+  "chatEnableTranslation": {
+    "message": "启用聊天室翻译",
+    "description": "Enable chat translation label"
+  },
+  "chatTargetLanguage": {
+    "message": "聊天室目标语言",
+    "description": "Chat target language label"
+  },
+  "chatTranslationPrefix": {
+    "message": "聊天室翻译前缀",
+    "description": "Chat translation prefix label"
+  },
+  "translationHelp": {
+    "message": "将直播标题与描述翻译为你偏好的语言",
+    "description": "Translation help text"
+  },
+  "translationRefreshHint": {
+    "message": "更改翻译设置后，请刷新 Twitch 页面以生效。",
+    "description": "Hint to refresh page after changing translation settings"
   }
   ,
   "accountCreatedAt": {

@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "Twitch 라이브 알림",
+    "message": "Twitch 라이브 알림 | 채팅 번역",
     "description": "Extension name"
   },
   "extensionDescription": {
-    "message": "선택한 Twitch 스트리머가 라이브 방송을 시작하면 알림을 보내고, 팝업에서 방송 정보가 표시됩니다.",
+    "message": "선택한 Twitch 스트리머의 라이브 시작을 알리고 팝업에 방송 정보를 표시. 채팅 번역 및 다국어 지원 포함.",
     "description": "Extension description"
   },
   "extensionTitle": {
@@ -478,6 +478,31 @@
   "enableAutoFollowHint": {
     "message": "힌트: 팔로우한 스트리머를 자동으로 가져오려면 설정에서 '자동 추적'을 활성화하세요",
     "description": "Hint after authorization to enable auto follow in settings"
+  }
+  ,
+  "chatTranslationSettings": {
+    "message": "채팅 번역 설정",
+    "description": "Chat translation settings section title"
+  },
+  "chatEnableTranslation": {
+    "message": "채팅 번역 활성화",
+    "description": "Enable chat translation label"
+  },
+  "chatTargetLanguage": {
+    "message": "채팅 대상 언어",
+    "description": "Chat target language label"
+  },
+  "chatTranslationPrefix": {
+    "message": "채팅 번역 접두사",
+    "description": "Chat translation prefix label"
+  },
+  "translationHelp": {
+    "message": "방송 제목과 설명을 원하는 언어로 번역합니다",
+    "description": "Translation help text"
+  },
+  "translationRefreshHint": {
+    "message": "번역 설정을 변경한 후에는 적용을 위해 Twitch 페이지를 새로고침하세요.",
+    "description": "Hint to refresh page after changing translation settings"
   }
   ,
   "accountCreatedAt": {

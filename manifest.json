@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_extensionName__",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "__MSG_extensionDescription__",
   "default_locale": "en",
   "icons": {
@@ -24,7 +24,16 @@
   "host_permissions": [
     "https://api.twitch.tv/*",
     "https://id.twitch.tv/*",
-    "https://static-cdn.jtvnw.net/*"
+    "https://static-cdn.jtvnw.net/*",
+    "https://www.twitch.tv/*",
+    "https://translate.googleapis.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://www.twitch.tv/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
   ],
   "web_accessible_resources": [
     {

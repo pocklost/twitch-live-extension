@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "Twitch Live Notifier",
+    "message": "Twitch Live Notifier | Chat Translation",
     "description": "Extension name"
   },
   "extensionDescription": {
-    "message": "Notify when selected Twitch streamers go live, and show live stream information in the popup.",
+    "message": "Notify when selected Twitch streamers go live, show live info in the popup. Includes chat translation and multi-language support.",
     "description": "Extension description"
   },
   "extensionTitle": {
@@ -474,6 +474,31 @@
   "enableAutoFollowHint": {
     "message": "Tip: To auto-fetch followed streamers, enable 'Auto Tracking' in Settings",
     "description": "Hint after authorization to enable auto follow in settings"
+  }
+  ,
+  "chatTranslationSettings": {
+    "message": "Chat Translation Settings",
+    "description": "Chat translation settings section title"
+  },
+  "chatEnableTranslation": {
+    "message": "Enable chat translation",
+    "description": "Enable chat translation label"
+  },
+  "chatTargetLanguage": {
+    "message": "Chat target language",
+    "description": "Chat target language label"
+  },
+  "chatTranslationPrefix": {
+    "message": "Chat translation prefix",
+    "description": "Chat translation prefix label"
+  },
+  "translationHelp": {
+    "message": "Translate stream titles and descriptions to your preferred language",
+    "description": "Translation help text"
+  },
+  "translationRefreshHint": {
+    "message": "After changing translation settings, refresh the Twitch page for changes to take effect.",
+    "description": "Hint to refresh page after changing translation settings"
   }
   ,
   "accountCreatedAt": {

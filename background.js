@@ -970,6 +970,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           next.hideOffline = true;
         }
         
+        
+        if (next.translationEnabled === undefined) {
+          next.translationEnabled = false;
+        }
+        if (!next.targetLanguage) {
+          next.targetLanguage = 'en';
+        }
+        if (!next.customPrefix) {
+          next.customPrefix = '';
+        }
+        
         await tracker.write({ [STORAGE.settings]: next });
         await chrome.alarms.clear('tsn_poll_v1');
         chrome.alarms.create('tsn_poll_v1', { periodInMinutes: next.pollMinutes });

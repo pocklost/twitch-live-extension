@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "Twitch ライブ通知",
+    "message": "Twitch ライブ通知 | チャット翻訳",
     "description": "Extension name"
   },
   "extensionDescription": {
-    "message": "選択した Twitch ストリーマーがライブ配信を開始したときに通知し、ポップアップで配信情報を表示します。",
+    "message": "選択した Twitch ストリーマーのライブ開始を通知し、ポップアップに配信情報を表示。チャット翻訳と多言語対応を含みます。",
     "description": "Extension description"
   },
   "extensionTitle": {
@@ -475,6 +475,31 @@
   "enableAutoFollowHint": {
     "message": "ヒント：フォロー中のストリーマーを自動取得するには、設定で『自動追跡』を有効にしてください",
     "description": "Hint after authorization to enable auto follow in settings"
+  }
+  ,
+  "chatTranslationSettings": {
+    "message": "チャット翻訳設定",
+    "description": "Chat translation settings section title"
+  },
+  "chatEnableTranslation": {
+    "message": "チャット翻訳を有効化",
+    "description": "Enable chat translation label"
+  },
+  "chatTargetLanguage": {
+    "message": "チャット対象言語",
+    "description": "Chat target language label"
+  },
+  "chatTranslationPrefix": {
+    "message": "チャット翻訳プレフィックス",
+    "description": "Chat translation prefix label"
+  },
+  "translationHelp": {
+    "message": "配信タイトルと説明を希望する言語に翻訳します",
+    "description": "Translation help text"
+  },
+  "translationRefreshHint": {
+    "message": "翻訳設定の変更後、反映するには Twitch ページを再読み込みしてください。",
+    "description": "Hint to refresh page after changing translation settings"
   }
   ,
   "accountCreatedAt": {

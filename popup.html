@@ -1304,6 +1304,141 @@
                   </div>
                 </div>
 
+                <div class="settings-section" id="translationSection" style="display: none;">
+                  <h3 class="section-title"><span aria-hidden="true" style="display:inline-flex;align-items:center;gap:6px;vertical-align:middle;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 0 1 6.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/>
+                </svg>
+                  </span> <span data-i18n="chatTranslationSettings">Translation Settings</span></h3>
+                  <div class="settings-grid">
+                    <label class="option">
+                      <div class="checkbox">
+                        <input type="checkbox" id="translationEnabled" />
+                        <span class="checkmark"></span>
+                      </div>
+                      <span data-i18n="chatEnableTranslation">Enable translation</span>
+                    </label>
+                    <label class="option">
+                      <span data-i18n="chatTargetLanguage">Target language</span>
+                      <select id="targetLanguage" class="text-input" style="width: 200px; margin-left: 8px;">
+                        <option value="af">Afrikaans</option>
+                        <option value="sq">Shqip</option>
+                        <option value="am">አማርኛ</option>
+                        <option value="ar">العربية</option>
+                        <option value="hy">Հայերեն</option>
+                        <option value="az">Azərbaycanca</option>
+                        <option value="eu">Euskara</option>
+                        <option value="be">Беларуская</option>
+                        <option value="bn">বাংলা</option>
+                        <option value="bs">Bosanski</option>
+                        <option value="bg">Български</option>
+                        <option value="ca">Català</option>
+                        <option value="ceb">Cebuano</option>
+                        <option value="ny">Chichewa</option>
+                        <option value="zh-cn">简体中文</option>
+                        <option value="zh-tw">繁體中文</option>
+                        <option value="co">Corsu</option>
+                        <option value="hr">Hrvatski</option>
+                        <option value="cs">Čeština</option>
+                        <option value="da">Dansk</option>
+                        <option value="nl">Nederlands</option>
+                        <option value="en">English</option>
+                        <option value="eo">Esperanto</option>
+                        <option value="et">Eesti</option>
+                        <option value="tl">Filipino</option>
+                        <option value="fi">Suomi</option>
+                        <option value="fr">Français</option>
+                        <option value="fy">Frysk</option>
+                        <option value="gl">Galego</option>
+                        <option value="ka">ქართული</option>
+                        <option value="de">Deutsch</option>
+                        <option value="el">Ελληνικά</option>
+                        <option value="gu">ગુજરાતી</option>
+                        <option value="ht">Kreyòl Ayisyen</option>
+                        <option value="ha">Hausa</option>
+                        <option value="haw">ʻŌlelo Hawaiʻi</option>
+                        <option value="iw">עברית</option>
+                        <option value="hi">हिन्दी</option>
+                        <option value="hmn">Hmoob</option>
+                        <option value="hu">Magyar</option>
+                        <option value="is">Íslenska</option>
+                        <option value="ig">Igbo</option>
+                        <option value="id">Bahasa Indonesia</option>
+                        <option value="ga">Gaeilge</option>
+                        <option value="it">Italiano</option>
+                        <option value="ja">日本語</option>
+                        <option value="jw">Basa Jawa</option>
+                        <option value="kn">ಕನ್ನಡ</option>
+                        <option value="kk">Қазақ тілі</option>
+                        <option value="km">ខ្មែរ</option>
+                        <option value="ko">한국어</option>
+                        <option value="ku">Kurdî (Kurmanji)</option>
+                        <option value="ky">Кыргызча</option>
+                        <option value="lo">ລາວ</option>
+                        <option value="la">Latina</option>
+                        <option value="lv">Latviešu</option>
+                        <option value="lt">Lietuvių</option>
+                        <option value="lb">Lëtzebuergesch</option>
+                        <option value="mk">Македонски</option>
+                        <option value="mg">Malagasy</option>
+                        <option value="ms">Bahasa Melayu</option>
+                        <option value="ml">മലയാളം</option>
+                        <option value="mt">Malti</option>
+                        <option value="mi">Māori</option>
+                        <option value="mr">मराठी</option>
+                        <option value="mn">Монгол</option>
+                        <option value="my">မြန်မာ</option>
+                        <option value="ne">नेपाली</option>
+                        <option value="no">Norsk</option>
+                        <option value="ps">پښتو</option>
+                        <option value="fa">فارسی</option>
+                        <option value="pl">Polski</option>
+                        <option value="pt">Português</option>
+                        <option value="pt-br">Português (Brasil)</option>
+                        <option value="pa">ਪੰਜਾਬੀ</option>
+                        <option value="ro">Română</option>
+                        <option value="ru">Русский</option>
+                        <option value="sm">Gagana Samoa</option>
+                        <option value="gd">Gàidhlig</option>
+                        <option value="sr">Српски</option>
+                        <option value="st">Sesotho</option>
+                        <option value="sn">Shona</option>
+                        <option value="sd">سنڌي</option>
+                        <option value="si">සිංහල</option>
+                        <option value="sk">Slovenčina</option>
+                        <option value="sl">Slovenščina</option>
+                        <option value="so">Soomaali</option>
+                        <option value="es">Español</option>
+                        <option value="su">Basa Sunda</option>
+                        <option value="sw">Kiswahili</option>
+                        <option value="sv">Svenska</option>
+                        <option value="tg">Тоҷикӣ</option>
+                        <option value="ta">தமிழ்</option>
+                        <option value="te">తెలుగు</option>
+                        <option value="th">ไทย</option>
+                        <option value="tr">Türkçe</option>
+                        <option value="uk">Українська</option>
+                        <option value="ur">اردو</option>
+                        <option value="uz">Oʻzbekcha</option>
+                        <option value="vi">Tiếng Việt</option>
+                        <option value="cy">Cymraeg</option>
+                        <option value="xh">isiXhosa</option>
+                        <option value="yi">ייִדיש</option>
+                        <option value="yo">Yorùbá</option>
+                        <option value="zu">isiZulu</option>
+                      </select>
+                    </label>
+                    <label class="option">
+                      <span data-i18n="chatTranslationPrefix">Translation prefix</span>
+                      <input type="text" id="customPrefix" class="text-input" placeholder="[xx]" style="width: 100px; margin-left: 8px;" maxlength="20">
+                    </label>
+                  </div>
+                  
+                <div class="help-text">
+                  <span data-i18n="translationRefreshHint">After changing translation settings, refresh the Twitch page for changes to take effect.</span>
+                </div>
+                </div>
+
                 <div class="settings-section" id="backupSection" style="display: none;">
                   <h3 class="section-title"><span aria-hidden="true" style="display:inline-flex;align-items:center;gap:6px;vertical-align:middle;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

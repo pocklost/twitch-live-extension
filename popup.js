@@ -52,16 +52,18 @@ function switchTab(tabName) {
   document.getElementById(tabName + 'Tab').classList.add('active');
   
   if (tabName === 'settings') {
-    const manualChannelSection = document.getElementById('manualChannelSection');
-    const autoTrackingSection = document.getElementById('autoTrackingSection');
-    const notificationSettingsSection = document.getElementById('notificationSettingsSection');
-    const backupSection = document.getElementById('backupSection');
-    const settingsStatusBar = document.getElementById('settingsStatusBar');
-    if (manualChannelSection) manualChannelSection.style.display = 'none';
-    if (autoTrackingSection) autoTrackingSection.style.display = 'none';
-    if (notificationSettingsSection) notificationSettingsSection.style.display = 'none';
-    if (backupSection) backupSection.style.display = 'none';
-    if (settingsStatusBar) settingsStatusBar.style.display = 'none';
+  const manualChannelSection = document.getElementById('manualChannelSection');
+  const autoTrackingSection = document.getElementById('autoTrackingSection');
+  const notificationSettingsSection = document.getElementById('notificationSettingsSection');
+  const translationSection = document.getElementById('translationSection');
+  const backupSection = document.getElementById('backupSection');
+  const settingsStatusBar = document.getElementById('settingsStatusBar');
+  if (manualChannelSection) manualChannelSection.style.display = 'none';
+  if (autoTrackingSection) autoTrackingSection.style.display = 'none';
+  if (notificationSettingsSection) notificationSettingsSection.style.display = 'none';
+  if (translationSection) translationSection.style.display = 'none';
+  if (backupSection) backupSection.style.display = 'none';
+  if (settingsStatusBar) settingsStatusBar.style.display = 'none';
 
     loadSettings();
     loadChannels();
@@ -136,15 +138,53 @@ function loadSettings() {
       return;
     }
     const s = res?.settings || {};
-    document.getElementById('muteNotifications').checked = !!s.muteNotifications;
-    document.getElementById('hideOffline').checked = s.hideOffline !== false;
-    document.getElementById('hidePreviews').checked = !!s.hidePreviews;
-    document.getElementById('pollMinutes').value = Number(s.pollMinutes || 1);
-    document.getElementById('autoFollow').checked = !!s.autoFollow;
+    
+    const muteNotificationsEl = document.getElementById('muteNotifications');
+    const hideOfflineEl = document.getElementById('hideOffline');
+    const hidePreviewsEl = document.getElementById('hidePreviews');
+    const pollMinutesEl = document.getElementById('pollMinutes');
+    const autoFollowEl = document.getElementById('autoFollow');
+    const translationEnabledEl = document.getElementById('translationEnabled');
+    const targetLanguageEl = document.getElementById('targetLanguage');
+    const customPrefixEl = document.getElementById('customPrefix');
+    
+    if (muteNotificationsEl) muteNotificationsEl.checked = !!s.muteNotifications;
+    if (hideOfflineEl) hideOfflineEl.checked = s.hideOffline !== false;
+    if (hidePreviewsEl) hidePreviewsEl.checked = !!s.hidePreviews;
+    if (pollMinutesEl) pollMinutesEl.value = Number(s.pollMinutes || 1);
+    if (autoFollowEl) autoFollowEl.checked = !!s.autoFollow;
+    
+    if (translationEnabledEl) {
+      translationEnabledEl.checked = !!s.translationEnabled;
+    }
+    if (targetLanguageEl) {
+      targetLanguageEl.value = s.targetLanguage || 'en';
+    }
+    if (customPrefixEl) {
+      customPrefixEl.value = s.customPrefix || '';
+    }
     
     pollInterval = Number(s.pollMinutes || 1) * 60;
     
     updateManualChannelVisibility(!!s.autoFollow);
+  });
+  
+  
+  chrome.storage.local.get(['chatTranslationSettings'], (result) => {
+    const translationSettings = result.chatTranslationSettings || {};
+    const translationEnabledEl = document.getElementById('translationEnabled');
+    const targetLanguageEl = document.getElementById('targetLanguage');
+    const customPrefixEl = document.getElementById('customPrefix');
+    
+    if (translationEnabledEl) {
+      translationEnabledEl.checked = translationSettings.enabled !== false;
+    }
+    if (targetLanguageEl) {
+      targetLanguageEl.value = translationSettings.language || 'zh-tw';
+    }
+    if (customPrefixEl) {
+      customPrefixEl.value = translationSettings.customPrefix || '';
+    }
   });
 }
 
@@ -193,6 +233,7 @@ function updateAuthStatus(isAuthorized) {
   const manualChannelSection = document.getElementById('manualChannelSection');
   const autoTrackingSection = document.getElementById('autoTrackingSection');
   const notificationSettingsSection = document.getElementById('notificationSettingsSection');
+  const translationSection = document.getElementById('translationSection');
   const backupSection = document.getElementById('backupSection');
   const autoFollowCheckbox = document.getElementById('autoFollow');
   const settingsStatusBar = document.getElementById('settingsStatusBar');
@@ -202,6 +243,7 @@ function updateAuthStatus(isAuthorized) {
     authSection.classList.add('hidden');
     autoTrackingSection.style.display = 'block';
     notificationSettingsSection.style.display = 'block';
+    if (translationSection) translationSection.style.display = 'block';
     if (backupSection) backupSection.style.display = 'block';
     if (settingsStatusBar) settingsStatusBar.style.display = 'flex';
     chrome.runtime.sendMessage({ type: 'settings:get' }, (res) => {
@@ -223,6 +265,7 @@ function updateAuthStatus(isAuthorized) {
     manualChannelSection.style.display = 'none';
     autoTrackingSection.style.display = 'none';
     notificationSettingsSection.style.display = 'block';
+    if (translationSection) translationSection.style.display = 'block';
     if (backupSection) backupSection.style.display = 'none';
     if (settingsStatusBar) settingsStatusBar.style.display = 'flex';
   }
@@ -253,12 +296,24 @@ function toggleOfflineSection(event) {
 }
 
 function saveSettings() {
+  const muteNotificationsEl = document.getElementById('muteNotifications');
+  const hideOfflineEl = document.getElementById('hideOffline');
+  const hidePreviewsEl = document.getElementById('hidePreviews');
+  const pollMinutesEl = document.getElementById('pollMinutes');
+  const autoFollowEl = document.getElementById('autoFollow');
+  const translationEnabledEl = document.getElementById('translationEnabled');
+  const targetLanguageEl = document.getElementById('targetLanguage');
+  const customPrefixEl = document.getElementById('customPrefix');
+  
   const settings = {
-    muteNotifications: document.getElementById('muteNotifications').checked,
-    hideOffline: document.getElementById('hideOffline').checked,
-    hidePreviews: document.getElementById('hidePreviews').checked,
-    pollMinutes: Number(document.getElementById('pollMinutes').value || 1),
-    autoFollow: document.getElementById('autoFollow').checked
+    muteNotifications: muteNotificationsEl ? muteNotificationsEl.checked : false,
+    hideOffline: hideOfflineEl ? hideOfflineEl.checked : true,
+    hidePreviews: hidePreviewsEl ? hidePreviewsEl.checked : false,
+    pollMinutes: pollMinutesEl ? Number(pollMinutesEl.value || 1) : 1,
+    autoFollow: autoFollowEl ? autoFollowEl.checked : false,
+    translationEnabled: translationEnabledEl ? translationEnabledEl.checked : false,
+    targetLanguage: targetLanguageEl ? targetLanguageEl.value : 'en',
+    customPrefix: customPrefixEl ? customPrefixEl.value : ''
   };
   
   pollInterval = settings.pollMinutes * 60;
@@ -273,6 +328,24 @@ function saveSettings() {
     if (response?.ok) {
       console.log(chrome.i18n.getMessage('settingsAutoSaved'));
       
+      
+      let formattedCustomPrefix = settings.customPrefix;
+      if (formattedCustomPrefix && formattedCustomPrefix.trim()) {
+        
+        const cleanPrefix = formattedCustomPrefix.replace(/[\[\]]/g, '').trim();
+        if (cleanPrefix) {
+          formattedCustomPrefix = `[${cleanPrefix}]`;
+        }
+      }
+      
+      chrome.storage.local.set({
+        chatTranslationSettings: {
+          enabled: settings.translationEnabled,
+          language: settings.targetLanguage,
+          customPrefix: formattedCustomPrefix
+        }
+      });
+      
       if (settings.autoFollow) {
         console.log('Auto-follow enabled, triggering immediate fetch...');
         chrome.runtime.sendMessage({ type: 'test:autoFollow' }, (fetchResponse) => {
@@ -286,9 +359,9 @@ function saveSettings() {
           }
         });
       } else {
-        chrome.runtime.sendMessage({ type: 'streams:list' }, (res2) => {
+        chrome.runtime.sendMessage({ type: 'streams:list' }, async (res2) => {
           if (!chrome.runtime.lastError && res2?.payload) {
-            renderStreamList(res2.payload, settings);
+            await renderStreamList(res2.payload, settings);
           }
         });
       }
@@ -375,7 +448,7 @@ function getPreviewUrl(username, width = 320, height = 180) {
   return `https://static-cdn.jtvnw.net/previews-ttv/live_user_${username}-${width}x${height}.jpg`;
 }
 
-function renderStreamList(streams, settings) {
+async function renderStreamList(streams, settings) {
   const streamList = document.getElementById('streamList');
   const emptyState = document.getElementById('empty');
   const loadingState = document.getElementById('loading');
@@ -454,21 +527,146 @@ function renderStreamList(streams, settings) {
   
   const sortedOfflineStreams = offlineStreams.sort((a, b) => (a.username || '').localeCompare(b.username || ''));
 
-  updateStreamList(streamList, sortedLiveStreams, sortedOfflineStreams, settings);
+  await updateStreamList(streamList, sortedLiveStreams, sortedOfflineStreams, settings);
 
+  
+  setupStreamTitleTooltips();
 }
 
-function updateStreamList(streamList, liveStreams, offlineStreams, settings) {
+function isTextOverflowing(element) {
+  if (!element) return false;
+  
+  
+  return element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth;
+}
+
+function shouldShowTooltip(element, context = '') {
+  if (!element) return false;
+  
+  
+  if (element.classList.contains('follow-age') && context === 'channels') {
+    return true;
+  }
+  
+  
+  if (element.classList.contains('stream-title') && context === 'streams') {
+    return isTextOverflowing(element);
+  }
+  
+  
+  return isTextOverflowing(element);
+}
+
+
+async function translateText(text, targetLanguage, provider = 'google') {
+  if (!text || !targetLanguage) return text;
+  
+  try {
+    
+    if (provider === 'google') {
+      const response = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLanguage}&dt=t&q=${encodeURIComponent(text)}`);
+      const data = await response.json();
+      return data[0]?.[0]?.[0] || text;
+    }
+    
+    
+    return text;
+  } catch (error) {
+    console.error('Translation error:', error);
+    return text;
+  }
+}
+
+
+function getStreamTitle(stream) {
+  return stream.channel?.status || '';
+}
+
+function setupStreamTitleTooltips() {
+  let unifiedTooltipEl = null;
+  const ensureUnifiedTooltip = () => {
+    if (unifiedTooltipEl) return unifiedTooltipEl;
+    const el = document.createElement('div');
+    el.style.cssText = [
+      'position: fixed',
+      'z-index: 9999',
+      'max-width: 320px',
+      'max-height: 260px',
+      'overflow: auto',
+      'padding: 8px 10px',
+      'border-radius: 8px',
+      'border: 1px solid var(--border-light)',
+      'background: var(--bg-secondary)',
+      'color: var(--text-primary)',
+      'box-shadow: var(--shadow-medium)',
+      'line-height: 1.5',
+      'white-space: pre-wrap',
+      'display: none'
+    ].join(';');
+    document.body.appendChild(el);
+    unifiedTooltipEl = el;
+    return el;
+  };
+
+  const positionUnifiedTooltip = (ev) => {
+    if (!unifiedTooltipEl || unifiedTooltipEl.style.display === 'none') return;
+    const padding = 12;
+    let x = ev.clientX + padding;
+    let y = ev.clientY + padding;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const rect = unifiedTooltipEl.getBoundingClientRect();
+    if (x + rect.width > vw - 4) x = Math.max(4, vw - rect.width - 4);
+    if (y + rect.height > vh - 4) y = Math.max(4, vh - rect.height - 4);
+    unifiedTooltipEl.style.left = `${x}px`;
+    unifiedTooltipEl.style.top = `${y}px`;
+  };
+
+  const hoverSelector = '.stream-title';
+  const streamList = document.getElementById('streamList');
+
+  if (streamList) {
+    streamList.addEventListener('mouseover', (e) => {
+      const target = e.target.closest(hoverSelector);
+      if (!target) return;
+      
+      
+      if (!shouldShowTooltip(target, 'streams')) return;
+      
+      const content = target.getAttribute('data-full') || target.textContent || '';
+      if (content.length === 0) return;
+      const tip = ensureUnifiedTooltip();
+      tip.textContent = content;
+      tip.style.display = 'block';
+      positionUnifiedTooltip(e);
+    });
+
+    streamList.addEventListener('mousemove', (e) => {
+      if (unifiedTooltipEl && unifiedTooltipEl.style.display === 'block') {
+        positionUnifiedTooltip(e);
+      }
+    });
+
+    streamList.addEventListener('mouseout', (e) => {
+      const leavingHover = e.target.closest('.stream-title') && !e.relatedTarget?.closest?.('.stream-title');
+      if (leavingHover && unifiedTooltipEl) {
+        unifiedTooltipEl.style.display = 'none';
+      }
+    });
+  }
+}
+
+async function updateStreamList(streamList, liveStreams, offlineStreams, settings) {
   const existingItems = Array.from(streamList.children);
   const existingLiveItems = existingItems.filter(item => !item.classList.contains('offline-section'));
   const existingOfflineSection = existingItems.find(item => item.classList.contains('offline-section'));
   
-  updateLiveStreamItems(streamList, existingLiveItems, liveStreams, settings);
+  await updateLiveStreamItems(streamList, existingLiveItems, liveStreams, settings);
   
   updateOfflineSection(streamList, existingOfflineSection, offlineStreams, settings);
 }
 
-function updateLiveStreamItems(streamList, existingItems, liveStreams, settings) {
+async function updateLiveStreamItems(streamList, existingItems, liveStreams, settings) {
   const itemMap = new Map();
   existingItems.forEach(item => {
     const username = item.querySelector('.streamer-name')?.textContent;
@@ -477,14 +675,14 @@ function updateLiveStreamItems(streamList, existingItems, liveStreams, settings)
     }
   });
   
-  liveStreams.forEach((stream, index) => {
+  for (const [index, stream] of liveStreams.entries()) {
     const username = stream.channel.display_name;
     let item = itemMap.get(username);
     
     if (item) {
       updateStreamItemContent(item, stream, settings);
     } else {
-      item = createStreamItem(stream, settings);
+      item = await createStreamItem(stream, settings);
       const insertBefore = existingItems[index] || null;
       if (insertBefore) {
         streamList.insertBefore(item, insertBefore);
@@ -492,7 +690,7 @@ function updateLiveStreamItems(streamList, existingItems, liveStreams, settings)
         streamList.appendChild(item);
       }
     }
-  });
+  }
   
   const currentUsernames = new Set(liveStreams.map(s => s.channel.display_name));
   existingItems.forEach(item => {
@@ -513,6 +711,7 @@ function updateStreamItemContent(item, stream, settings) {
   const title = item.querySelector('.stream-title');
   if (title) {
     title.textContent = stream.channel.status;
+    title.setAttribute('data-full', (stream.channel.status || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;'));
   }
   
   const gameName = item.querySelector('.game-name');
@@ -543,7 +742,7 @@ function updateStreamItemContent(item, stream, settings) {
   }
 }
 
-function createStreamItem(stream, settings) {
+async function createStreamItem(stream, settings) {
     const item = document.createElement('li');
     item.className = 'stream-item fade-in';
   if (stream.created_at) {
@@ -589,11 +788,15 @@ function createStreamItem(stream, settings) {
         </div>
       `;
 
+  
+  const displayTitle = stream.channel.status;
+  const originalTitle = stream.channel.status;
+
   const streamContentHtml = `
         <div class="stream-content">
           ${thumbnailHtml}
           <div class="stream-info">
-            <div class="stream-title">${stream.channel.status}</div>
+            <div class="stream-title" data-full="${(originalTitle || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}" data-translated="${(displayTitle || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}">${displayTitle}</div>
             <div class="stream-meta">
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; min-width: 0;">
               <span class="streamer-name">${stream.channel.display_name}</span>
@@ -774,13 +977,13 @@ function refresh() {
       return;
     }
     if (response?.payload) {
-      chrome.runtime.sendMessage({ type: 'settings:get' }, (settingsRes) => {
+      chrome.runtime.sendMessage({ type: 'settings:get' }, async (settingsRes) => {
         if (chrome.runtime.lastError) {
           console.log('Error loading settings for refresh:', chrome.runtime.lastError.message);
-          renderStreamList(response.payload, {});
+          await renderStreamList(response.payload, {});
           return;
         }
-        renderStreamList(response.payload, settingsRes?.settings || {});
+        await renderStreamList(response.payload, settingsRes?.settings || {});
         document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString(navigator.language);
       });
     } else {
@@ -1052,11 +1255,15 @@ function renderChannelsList() {
     unifiedTooltipEl.style.top = `${y}px`;
   };
 
-  const hoverSelector = '.channel-desc, .follow-age';
+  const hoverSelector = '.channel-desc, .follow-age, .stream-title';
 
   channelsList.addEventListener('mouseover', (e) => {
     const target = e.target.closest(hoverSelector);
     if (!target) return;
+    
+    
+    if (!shouldShowTooltip(target, 'channels')) return;
+    
     const content = target.getAttribute('data-full') || target.textContent || '';
     const tip = ensureUnifiedTooltip();
     tip.textContent = content;
@@ -1366,7 +1573,7 @@ function deleteAllChannels() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const settingsElements = ['muteNotifications', 'hideOffline', 'hidePreviews', 'pollMinutes', 'autoFollow'];
+      const settingsElements = ['muteNotifications', 'hideOffline', 'hidePreviews', 'pollMinutes', 'autoFollow', 'translationEnabled', 'targetLanguage', 'customPrefix'];
   settingsElements.forEach(id => {
     const element = document.getElementById(id);
     if (element) {
@@ -1491,13 +1698,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg?.type === 'streams:update') {
-    chrome.runtime.sendMessage({ type: 'settings:get' }, (res) => {
+    chrome.runtime.sendMessage({ type: 'settings:get' }, async (res) => {
       if (chrome.runtime.lastError) {
         console.log('Error loading settings in message listener:', chrome.runtime.lastError.message);
-        renderStreamList(msg.payload || [], {});
+        await renderStreamList(msg.payload || [], {});
         return;
       }
-      renderStreamList(msg.payload || [], res?.settings || {});
+      await renderStreamList(msg.payload || [], res?.settings || {});
     });
   }
 });
@@ -1598,6 +1805,20 @@ function updateCountdown() {
           element.style.display = 'flex';
         }
       });
+
+      
+      try {
+        const settingsLastUpdate = document.getElementById('settingsLastUpdate');
+        if (settingsLastUpdate && !settingsLastUpdate.textContent) {
+          const now = new Date().toLocaleTimeString(navigator.language, {
+            hour12: true,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          });
+          settingsLastUpdate.textContent = now;
+        }
+      } catch (_) {}
     }
   });
 }
