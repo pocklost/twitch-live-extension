@@ -206,7 +206,7 @@ class StreamStateManager {
         return result;
       }
       
-      const userIdArray = Object.values(userIds);
+      const userIdArray = Object.values(userIds).map(user => user.id);
       const batchSize = 100;
       const result = {};
       
@@ -242,11 +242,13 @@ class StreamStateManager {
         for (const stream of streams) {
           const login = stream.user_login.toLowerCase();
           if (lower.includes(login)) {
+            const userInfo = userIds[login];
             result[login] = {
               username: login,
               channel: {
                 display_name: stream.user_name,
-                status: stream.title
+                status: stream.title,
+                profile_image_url: userInfo ? userInfo.profile_image_url : null
               },
               game: stream.game_name,
               viewers: stream.viewer_count,
@@ -301,7 +303,10 @@ class StreamStateManager {
       const users = data.data || [];
       
       for (const user of users) {
-        result[user.login.toLowerCase()] = user.id;
+        result[user.login.toLowerCase()] = {
+          id: user.id,
+          profile_image_url: user.profile_image_url
+        };
       }
     }
     

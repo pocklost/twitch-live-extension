@@ -802,6 +802,12 @@ function updateStreamItemContent(item, stream, settings) {
     gameName.textContent = stream.game;
   }
   
+  const avatar = item.querySelector('.streamer-avatar');
+  if (avatar && stream.channel.profile_image_url) {
+    avatar.src = stream.channel.profile_image_url;
+    avatar.alt = stream.channel.display_name;
+  }
+  
   const viewerCount = item.querySelector('.viewer-count');
   if (viewerCount) {
     viewerCount.textContent = formatViewerCount(stream.viewers || 0);
@@ -881,7 +887,8 @@ async function createStreamItem(stream, settings) {
           <div class="stream-info">
             <div class="stream-title" data-full="${(originalTitle || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}" data-translated="${(displayTitle || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}">${displayTitle}</div>
             <div class="stream-meta">
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; min-width: 0;">
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px; min-width: 0;">
+              ${stream.channel.profile_image_url ? `<img src="${stream.channel.profile_image_url}" alt="${stream.channel.display_name}" class="streamer-avatar" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0;">` : ''}
               <span class="streamer-name">${stream.channel.display_name}</span>
               <span class="game-name">${stream.game}</span>
           </div>
