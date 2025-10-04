@@ -1186,7 +1186,10 @@ function renderChannelsList() {
         allLogins.forEach(login => {
           const entry = cache[login];
           if (entry && entry.desc !== undefined && (nowTs - (entry.ts || 0) < maxAge)) {
-            userMap[login] = { description: entry.desc };
+            userMap[login] = { 
+              description: entry.desc,
+              profile_image_url: entry.profile_image_url || ''
+            };
           } else {
             missing.push(login);
           }
@@ -1226,8 +1229,9 @@ function renderChannelsList() {
           return `
           <div class="channel-item" data-channel-id="${login}">
             <div class="channel-header">
-              <a href="https://www.twitch.tv/${login}" target="_blank" class="channel-name">
-                ${nameLine}
+              <a href="https://www.twitch.tv/${login}" target="_blank" class="channel-name" style="display: flex; align-items: center; gap: 8px;">
+                ${uinfo.profile_image_url ? `<img src="${uinfo.profile_image_url}" alt="${displayName}" class="channel-avatar" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid var(--border-light);">` : ''}
+                <span>${nameLine}</span>
               </a>
             </div>
             <div class="channel-details">
@@ -1255,8 +1259,15 @@ function renderChannelsList() {
             const fetched = usersRes?.users || {};
             const nextCache = { ...cache };
             Object.keys(fetched).forEach(login => {
-              nextCache[login] = { desc: fetched[login].description || '', ts: Date.now() };
-              userMap[login] = { description: fetched[login].description || '' };
+              nextCache[login] = { 
+                desc: fetched[login].description || '', 
+                profile_image_url: fetched[login].profile_image_url || '',
+                ts: Date.now() 
+              };
+              userMap[login] = { 
+                description: fetched[login].description || '',
+                profile_image_url: fetched[login].profile_image_url || ''
+              };
             });
             chrome.storage.local.set({ tsn_user_desc_cache: nextCache });
             renderWith(userMap);

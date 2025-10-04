@@ -1301,7 +1301,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
               id: u.id,
               login: u.login,
               display_name: u.display_name,
-              description: u.description || ''
+              description: u.description || '',
+              profile_image_url: u.profile_image_url || ''
             };
           });
           if (i + batchSize < logins.length) {
