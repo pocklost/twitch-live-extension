@@ -1420,6 +1420,18 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       }
       return;
     }
+    if (msg?.type === 'updateTranslationSettings') {
+      try {
+        await tracker.write({
+          chatTranslationSettings: msg.settings
+        });
+        sendResponse({ ok: true });
+      } catch (e) {
+        console.error('Error updating translation settings:', e);
+        sendResponse({ error: String(e?.message || e) });
+      }
+      return;
+    }
     if (msg?.action === 'openSettings') {
       try {
         chrome.tabs.create({

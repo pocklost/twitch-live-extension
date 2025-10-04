@@ -1268,3 +1268,35 @@ document.addEventListener('mousemove', (e) => {
   window.mouseX = e.clientX;
   window.mouseY = e.clientY;
 });
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'updateTranslationSettings') {
+    translatorState.enabled = message.settings.enabled === true;
+    translatorState.targetLang = message.settings.language || 'zh-tw';
+    translatorState.provider = message.settings.provider || 'microsoft';
+    
+    const toggleSwitch = document.querySelector('#chat-translation-toggle');
+    const languageSelector = document.querySelector('#chat-language-selector');
+    const providerSelector = document.querySelector('#translationProvider');
+    const statusElement = document.querySelector('#chat-translator-status');
+    const customPrefixInput = document.querySelector('#customPrefix');
+
+    if (toggleSwitch && languageSelector) {
+      toggleSwitch.checked = translatorState.enabled === true;
+      languageSelector.value = translatorState.targetLang;
+      
+      if (providerSelector) {
+        providerSelector.value = translatorState.provider;
+      }
+      
+      if (customPrefixInput) {
+        customPrefixInput.value = message.settings.customPrefix || '';
+      }
+      
+      messageProcessor.updateTranslationState();
+      messageProcessor.updateStatus(statusElement);
+    }
+    
+    sendResponse({ ok: true });
+  }
+});

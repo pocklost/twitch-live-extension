@@ -1,10 +1,20 @@
+let viewerCountSettings = { useKDisplay: false };
+let chatTranslationSettings = { enabled: false, provider: 'microsoft', language: 'zh-tw', customPrefix: '' };
+
 function formatViewerCount(count) {
-  if (count >= 1000000) {
-    return (count / 1000000).toFixed(1) + 'M';
-  } else if (count >= 1000) {
-    return (count / 1000).toFixed(1) + 'K';
+  const useKDisplayEl = document.getElementById('useKDisplay');
+  const useKDisplay = useKDisplayEl ? useKDisplayEl.checked : false;
+  
+  if (useKDisplay) {
+    if (count >= 1000000) {
+      return (count / 1000000).toFixed(1) + 'M';
+    } else if (count >= 1000) {
+      return (count / 1000).toFixed(1) + 'K';
+    }
+    return count.toString();
+  } else {
+    return count.toLocaleString();
   }
-  return count.toString();
 }
 
 function formatStreamDuration(startTime) {
@@ -148,6 +158,7 @@ function loadSettings() {
     const translationProviderEl = document.getElementById('translationProvider');
     const targetLanguageEl = document.getElementById('targetLanguage');
     const customPrefixEl = document.getElementById('customPrefix');
+    const useKDisplayEl = document.getElementById('useKDisplay');
     
     if (muteNotificationsEl) muteNotificationsEl.checked = !!s.muteNotifications;
     if (hideOfflineEl) hideOfflineEl.checked = s.hideOffline !== false;
@@ -167,6 +178,11 @@ function loadSettings() {
     if (customPrefixEl) {
       customPrefixEl.value = s.customPrefix || '';
     }
+    if (useKDisplayEl) {
+      useKDisplayEl.checked = s.useKDisplay === true;
+    }
+    
+    viewerCountSettings.useKDisplay = s.useKDisplay === true;
     
     pollInterval = Number(s.pollMinutes || 1) * 60;
     
@@ -193,6 +209,48 @@ function loadSettings() {
     if (customPrefixEl) {
       customPrefixEl.value = translationSettings.customPrefix || '';
     }
+    
+    chatTranslationSettings.enabled = translationSettings.enabled !== false;
+    chatTranslationSettings.provider = translationSettings.provider || 'microsoft';
+    chatTranslationSettings.language = translationSettings.language || 'zh-tw';
+    chatTranslationSettings.customPrefix = translationSettings.customPrefix || '';
+    
+    chrome.runtime.sendMessage({
+      type: 'updateTranslationSettings',
+      settings: chatTranslationSettings
+    });
+  });
+}
+
+function updateAllGlobalSettings() {
+  const useKDisplayEl = document.getElementById('useKDisplay');
+  if (useKDisplayEl) {
+    viewerCountSettings.useKDisplay = useKDisplayEl.checked;
+  }
+  
+  const translationEnabledEl = document.getElementById('translationEnabled');
+  if (translationEnabledEl) {
+    chatTranslationSettings.enabled = translationEnabledEl.checked;
+  }
+  
+  const translationProviderEl = document.getElementById('translationProvider');
+  if (translationProviderEl) {
+    chatTranslationSettings.provider = translationProviderEl.value;
+  }
+  
+  const targetLanguageEl = document.getElementById('targetLanguage');
+  if (targetLanguageEl) {
+    chatTranslationSettings.language = targetLanguageEl.value;
+  }
+  
+  const customPrefixEl = document.getElementById('customPrefix');
+  if (customPrefixEl) {
+    chatTranslationSettings.customPrefix = customPrefixEl.value;
+  }
+  
+  chrome.runtime.sendMessage({
+    type: 'updateTranslationSettings',
+    settings: chatTranslationSettings
   });
 }
 
@@ -313,6 +371,7 @@ function saveSettings() {
   const translationProviderEl = document.getElementById('translationProvider');
   const targetLanguageEl = document.getElementById('targetLanguage');
   const customPrefixEl = document.getElementById('customPrefix');
+  const useKDisplayEl = document.getElementById('useKDisplay');
   
   const settings = {
     muteNotifications: muteNotificationsEl ? muteNotificationsEl.checked : false,
@@ -323,8 +382,16 @@ function saveSettings() {
     translationEnabled: translationEnabledEl ? translationEnabledEl.checked : false,
     translationProvider: translationProviderEl ? translationProviderEl.value : 'microsoft',
     targetLanguage: targetLanguageEl ? targetLanguageEl.value : 'en',
-    customPrefix: customPrefixEl ? customPrefixEl.value : ''
+    customPrefix: customPrefixEl ? customPrefixEl.value : '',
+    useKDisplay: useKDisplayEl ? useKDisplayEl.checked : false
   };
+  
+  // 更新全域變數
+  viewerCountSettings.useKDisplay = settings.useKDisplay;
+  chatTranslationSettings.enabled = settings.translationEnabled;
+  chatTranslationSettings.provider = settings.translationProvider;
+  chatTranslationSettings.language = settings.targetLanguage;
+  chatTranslationSettings.customPrefix = settings.customPrefix;
   
   pollInterval = settings.pollMinutes * 60;
   
@@ -355,6 +422,11 @@ function saveSettings() {
           language: settings.targetLanguage,
           customPrefix: formattedCustomPrefix
         }
+      });
+      
+      chrome.runtime.sendMessage({
+        type: 'updateTranslationSettings',
+        settings: chatTranslationSettings
       });
       
       if (settings.autoFollow) {
@@ -994,6 +1066,7 @@ function refresh() {
           await renderStreamList(response.payload, {});
           return;
         }
+        updateAllGlobalSettings();
         await renderStreamList(response.payload, settingsRes?.settings || {});
         document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString(navigator.language);
       });
@@ -1584,7 +1657,7 @@ function deleteAllChannels() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-      const settingsElements = ['muteNotifications', 'hideOffline', 'hidePreviews', 'pollMinutes', 'autoFollow', 'translationEnabled', 'translationProvider', 'targetLanguage', 'customPrefix'];
+      const settingsElements = ['muteNotifications', 'hideOffline', 'hidePreviews', 'pollMinutes', 'autoFollow', 'translationEnabled', 'translationProvider', 'targetLanguage', 'customPrefix', 'useKDisplay'];
   settingsElements.forEach(id => {
     const element = document.getElementById(id);
     if (element) {
@@ -1661,7 +1734,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response?.ok) {
               showStatus(`✅ ${chrome.i18n.getMessage('importSuccess')}`, 'success');
               loadSettings();
-              refresh();
+              setTimeout(() => {
+                refresh();
+              }, 100);
             } else {
               showStatus(`❌ ${chrome.i18n.getMessage('importFailed', [response?.error || 'Unknown error'])}`, 'error');
             }
@@ -1995,7 +2070,10 @@ function loadUserProfile() {
 
 document.addEventListener('DOMContentLoaded', () => {
   i18n();
-  refresh();
+  loadSettings();
+  setTimeout(() => {
+    refresh();
+  }, 100);
   checkAuthStatus();
   loadUserProfile();
   startTimeUpdates();

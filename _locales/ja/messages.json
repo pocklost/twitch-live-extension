@@ -538,5 +538,9 @@
     "placeholders": {
       "days": { "content": "$1", "example": "120" }
     }
+  },
+  "useKDisplay": {
+    "message": "視聴者数をK形式で表示",
+    "description": "Use K format for viewer count checkbox"
   }
 }

@@ -552,5 +552,9 @@
     "placeholders": {
       "count": { "content": "$1", "example": "3" }
     }
+  },
+  "useKDisplay": {
+    "message": "使用 K 格式顯示觀眾人數",
+    "description": "Use K format for viewer count checkbox"
   }
 }
