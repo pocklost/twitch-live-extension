@@ -145,6 +145,7 @@ function loadSettings() {
     const pollMinutesEl = document.getElementById('pollMinutes');
     const autoFollowEl = document.getElementById('autoFollow');
     const translationEnabledEl = document.getElementById('translationEnabled');
+    const translationProviderEl = document.getElementById('translationProvider');
     const targetLanguageEl = document.getElementById('targetLanguage');
     const customPrefixEl = document.getElementById('customPrefix');
     
@@ -156,6 +157,9 @@ function loadSettings() {
     
     if (translationEnabledEl) {
       translationEnabledEl.checked = !!s.translationEnabled;
+    }
+    if (translationProviderEl) {
+      translationProviderEl.value = s.translationProvider || 'microsoft';
     }
     if (targetLanguageEl) {
       targetLanguageEl.value = s.targetLanguage || 'en';
@@ -173,11 +177,15 @@ function loadSettings() {
   chrome.storage.local.get(['chatTranslationSettings'], (result) => {
     const translationSettings = result.chatTranslationSettings || {};
     const translationEnabledEl = document.getElementById('translationEnabled');
+    const translationProviderEl = document.getElementById('translationProvider');
     const targetLanguageEl = document.getElementById('targetLanguage');
     const customPrefixEl = document.getElementById('customPrefix');
     
     if (translationEnabledEl) {
       translationEnabledEl.checked = translationSettings.enabled !== false;
+    }
+    if (translationProviderEl) {
+      translationProviderEl.value = translationSettings.provider || 'microsoft';
     }
     if (targetLanguageEl) {
       targetLanguageEl.value = translationSettings.language || 'zh-tw';
@@ -302,6 +310,7 @@ function saveSettings() {
   const pollMinutesEl = document.getElementById('pollMinutes');
   const autoFollowEl = document.getElementById('autoFollow');
   const translationEnabledEl = document.getElementById('translationEnabled');
+  const translationProviderEl = document.getElementById('translationProvider');
   const targetLanguageEl = document.getElementById('targetLanguage');
   const customPrefixEl = document.getElementById('customPrefix');
   
@@ -312,6 +321,7 @@ function saveSettings() {
     pollMinutes: pollMinutesEl ? Number(pollMinutesEl.value || 1) : 1,
     autoFollow: autoFollowEl ? autoFollowEl.checked : false,
     translationEnabled: translationEnabledEl ? translationEnabledEl.checked : false,
+    translationProvider: translationProviderEl ? translationProviderEl.value : 'microsoft',
     targetLanguage: targetLanguageEl ? targetLanguageEl.value : 'en',
     customPrefix: customPrefixEl ? customPrefixEl.value : ''
   };
@@ -341,6 +351,7 @@ function saveSettings() {
       chrome.storage.local.set({
         chatTranslationSettings: {
           enabled: settings.translationEnabled,
+          provider: settings.translationProvider,
           language: settings.targetLanguage,
           customPrefix: formattedCustomPrefix
         }
@@ -558,7 +569,7 @@ function shouldShowTooltip(element, context = '') {
 }
 
 
-async function translateText(text, targetLanguage, provider = 'google') {
+async function translateText(text, targetLanguage, provider = 'microsoft') {
   if (!text || !targetLanguage) return text;
   
   try {
@@ -1573,7 +1584,7 @@ function deleteAllChannels() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-      const settingsElements = ['muteNotifications', 'hideOffline', 'hidePreviews', 'pollMinutes', 'autoFollow', 'translationEnabled', 'targetLanguage', 'customPrefix'];
+      const settingsElements = ['muteNotifications', 'hideOffline', 'hidePreviews', 'pollMinutes', 'autoFollow', 'translationEnabled', 'translationProvider', 'targetLanguage', 'customPrefix'];
   settingsElements.forEach(id => {
     const element = document.getElementById(id);
     if (element) {

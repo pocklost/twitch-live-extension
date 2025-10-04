@@ -492,6 +492,10 @@
     "message": "聊天室翻譯前綴",
     "description": "Chat translation prefix label"
   },
+  "chatTranslationProvider": {
+    "message": "翻譯服務提供商",
+    "description": "Translation provider label"
+  },
   "translationHelp": {
     "message": "將實況標題與描述翻譯為你偏好的語言",
     "description": "Translation help text"

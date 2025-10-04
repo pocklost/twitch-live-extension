@@ -493,6 +493,10 @@
     "message": "聊天室翻译前缀",
     "description": "Chat translation prefix label"
   },
+  "chatTranslationProvider": {
+    "message": "翻译服务提供商",
+    "description": "Translation provider label"
+  },
   "translationHelp": {
     "message": "将直播标题与描述翻译为你偏好的语言",
     "description": "Translation help text"

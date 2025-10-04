@@ -26,7 +26,9 @@
     "https://id.twitch.tv/*",
     "https://static-cdn.jtvnw.net/*",
     "https://www.twitch.tv/*",
-    "https://translate.googleapis.com/*"
+    "https://translate.googleapis.com/*",
+    "https://api-edge.cognitive.microsofttranslator.com/*",
+    "https://edge.microsoft.com/*"
   ],
   "content_scripts": [
     {

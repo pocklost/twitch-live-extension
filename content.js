@@ -59,13 +59,14 @@ document.head.appendChild(styleSheet);
 const translatorState = {
   enabled: false,
   targetLang: 'zh-tw',
+  provider: 'microsoft',
   messageStore: new Map(),
   cache: new Map(),
   watcher: null,
   originalTexts: new Map(),
-  translatedElements: new Map(), // 追蹤翻譯元素
-  maxCacheSize: 100, // 最大緩存數量
-  maxTranslatedElements: 50 // 最大翻譯元素數量
+  translatedElements: new Map(),
+  maxCacheSize: 100,
+  maxTranslatedElements: 50
 };
 
  
@@ -154,7 +155,7 @@ function getTranslationPrefix(targetLang, customPrefixValue = '') {
   
   
   const language = supportedLanguages.find(lang => lang.code === targetLang);
-  return language ? language.prefix : '[譯]'; // Default to Chinese prefix
+  return language ? language.prefix : '[譯]';
 }
 
  
@@ -170,6 +171,10 @@ function buildTranslatorInterface() {
 
   hiddenContainer.innerHTML = `
     <input type="checkbox" id="chat-translation-toggle" />
+    <select id="translationProvider">
+      <option value="microsoft" selected>Microsoft Translator</option>
+      <option value="google">Google Translate</option>
+    </select>
     <select id="chat-language-selector">
       ${languageOptions}
     </select>
@@ -240,8 +245,8 @@ const textUtils = {
 
  
 const translationService = {
-  async translateText(text, targetLang) {
-    const cacheKey = `${text}_${targetLang}`;
+  async translateText(text, targetLang, provider = 'microsoft') {
+    const cacheKey = `${text}_${targetLang}_${provider}`;
     if (translatorState.cache.has(cacheKey)) {
       return translatorState.cache.get(cacheKey);
     }
@@ -250,11 +255,10 @@ const translationService = {
       let result;
       
       if (textUtils.hasEmoji(text)) {
-        result = await this.translateWithEmojis(text, targetLang);
+        result = await this.translateWithEmojis(text, targetLang, provider);
       } else {
-        result = await this.translateSimple(text, targetLang);
+        result = await this.translateSimple(text, targetLang, provider);
       }
-      
       
       if (translatorState.cache.size >= translatorState.maxCacheSize) {
         const firstKey = translatorState.cache.keys().next().value;
@@ -280,21 +284,21 @@ const translationService = {
     }
   },
 
-  async translateSimple(text, targetLang) {
+  async translateSimple(text, targetLang, provider = 'microsoft') {
     const chunks = textUtils.splitText(text);
     
     if (chunks.length === 1) {
-      return await this.translateChunk(chunks[0], targetLang);
+      return await this.translateChunk(chunks[0], targetLang, provider);
     }
     
     const translations = await Promise.all(
-      chunks.map(chunk => this.translateChunk(chunk, targetLang))
+      chunks.map(chunk => this.translateChunk(chunk, targetLang, provider))
     );
     
     return translations.join('');
   },
 
-  async translateWithEmojis(text, targetLang) {
+  async translateWithEmojis(text, targetLang, provider = 'microsoft') {
     const segments = textUtils.processEmojiText(text);
     let result = '';
     
@@ -302,7 +306,7 @@ const translationService = {
       if (segment.type === 'emoji') {
         result += segment.content;
       } else {
-        const translated = await this.translateChunk(segment.content, targetLang);
+        const translated = await this.translateChunk(segment.content, targetLang, provider);
         result += translated;
       }
     }
@@ -310,7 +314,15 @@ const translationService = {
     return result;
   },
 
-  async translateChunk(chunk, targetLang) {
+  async translateChunk(chunk, targetLang, provider = 'microsoft') {
+    if (provider === 'microsoft') {
+      return await this.translateChunkMicrosoft(chunk, targetLang);
+    } else {
+      return await this.translateChunkGoogle(chunk, targetLang);
+    }
+  },
+
+  async translateChunkGoogle(chunk, targetLang) {
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(chunk)}`;
     
     try {
@@ -320,7 +332,7 @@ const translationService = {
           'Accept': 'application/json',
         },
         
-        signal: AbortSignal.timeout(10000) // 10秒超時
+        signal: AbortSignal.timeout(10000)
       });
       
       if (!response.ok) {
@@ -343,6 +355,208 @@ const translationService = {
       }
       throw error;
     }
+  },
+
+  async translateChunkMicrosoft(chunk, targetLang) {
+    try {
+      const [token] = await this.msAuth();
+      
+      const detectedLang = await this.detectLanguageMicrosoft(chunk, token);
+      
+      if (detectedLang && this.isSameLanguageCode(detectedLang, targetLang)) {
+        console.log(`Language detected as ${detectedLang}, same as target ${targetLang}, skipping translation`);
+        return chunk;
+      }
+      
+      const params = {
+        to: targetLang,
+        'api-version': '3.0'
+      };
+      
+      const queryString = new URLSearchParams(params).toString();
+      const url = `https://api-edge.cognitive.microsofttranslator.com/translate?${queryString}`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify([{ Text: chunk }]),
+        signal: AbortSignal.timeout(10000)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Microsoft API Error Response:', errorText);
+        throw new Error(`Microsoft Translation API error: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data || !Array.isArray(data) || !data[0] || !data[0].translations) {
+        throw new Error('Invalid Microsoft translation response format');
+      }
+      
+      return data[0].translations.map(item => item.text).join(' ');
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error('Translation request timeout');
+      }
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error('Network error: Unable to connect to Microsoft translation service');
+      }
+      throw error;
+    }
+  },
+
+  async msAuth() {
+    try {
+      const response = await fetch('https://edge.microsoft.com/translate/auth', {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Microsoft auth API error: ${response.status} ${response.statusText}`);
+      }
+      
+      const token = await response.text();
+      return [token.trim()];
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error('Microsoft auth request timeout');
+      }
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error('Network error: Unable to connect to Microsoft auth service');
+      }
+      throw error;
+    }
+  },
+
+  async detectLanguageMicrosoft(text, token) {
+    try {
+      const url = 'https://api-edge.cognitive.microsofttranslator.com/detect?api-version=3.0';
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify([{ Text: text }]),
+        signal: AbortSignal.timeout(5000)
+      });
+      
+      if (!response.ok) {
+        console.warn('Language detection failed, using auto-detect');
+        return null;
+      }
+      
+      const data = await response.json();
+      return data[0]?.language || null;
+    } catch (error) {
+      console.warn('Language detection error:', error);
+      return null;
+    }
+  },
+
+  isSameLanguageCode(detectedLang, targetLang) {
+    const languageMapping = {
+      'zh': ['zh-cn', 'zh-tw', 'zh-hans', 'zh-hant'],
+      'zh-cn': ['zh', 'zh-cn', 'zh-hans'],
+      'zh-tw': ['zh', 'zh-tw', 'zh-hant'],
+      'zh-hans': ['zh', 'zh-cn', 'zh-hans'],
+      'zh-hant': ['zh', 'zh-tw', 'zh-hant'],
+      'en': ['en', 'en-us', 'en-gb'],
+      'ja': ['ja', 'ja-jp'],
+      'ko': ['ko', 'ko-kr'],
+      'es': ['es', 'es-es', 'es-mx'],
+      'fr': ['fr', 'fr-fr', 'fr-ca'],
+      'de': ['de', 'de-de'],
+      'ru': ['ru', 'ru-ru'],
+      'pt': ['pt', 'pt-br', 'pt-pt'],
+      'it': ['it', 'it-it'],
+      'ar': ['ar', 'ar-sa'],
+      'hi': ['hi', 'hi-in'],
+      'th': ['th', 'th-th'],
+      'vi': ['vi', 'vi-vn'],
+      'id': ['id', 'id-id'],
+      'ms': ['ms', 'ms-my'],
+      'tl': ['tl', 'fil'],
+      'tr': ['tr', 'tr-tr'],
+      'pl': ['pl', 'pl-pl'],
+      'nl': ['nl', 'nl-nl'],
+      'sv': ['sv', 'sv-se'],
+      'da': ['da', 'da-dk'],
+      'no': ['no', 'nb', 'nb-no'],
+      'fi': ['fi', 'fi-fi'],
+      'cs': ['cs', 'cs-cz'],
+      'hu': ['hu', 'hu-hu'],
+      'ro': ['ro', 'ro-ro'],
+      'bg': ['bg', 'bg-bg'],
+      'hr': ['hr', 'hr-hr'],
+      'sk': ['sk', 'sk-sk'],
+      'sl': ['sl', 'sl-si'],
+      'et': ['et', 'et-ee'],
+      'lv': ['lv', 'lv-lv'],
+      'lt': ['lt', 'lt-lt'],
+      'el': ['el', 'el-gr'],
+      'he': ['he', 'he-il'],
+      'fa': ['fa', 'fa-ir'],
+      'ur': ['ur', 'ur-pk'],
+      'bn': ['bn', 'bn-bd'],
+      'ta': ['ta', 'ta-in'],
+      'te': ['te', 'te-in'],
+      'ml': ['ml', 'ml-in'],
+      'kn': ['kn', 'kn-in'],
+      'gu': ['gu', 'gu-in'],
+      'pa': ['pa', 'pa-in'],
+      'mr': ['mr', 'mr-in'],
+      'ne': ['ne', 'ne-np'],
+      'si': ['si', 'si-lk'],
+      'my': ['my', 'my-mm'],
+      'km': ['km', 'km-kh'],
+      'lo': ['lo', 'lo-la'],
+      'ka': ['ka', 'ka-ge'],
+      'am': ['am', 'am-et'],
+      'sw': ['sw', 'sw-ke'],
+      'zu': ['zu', 'zu-za'],
+      'af': ['af', 'af-za'],
+      'sq': ['sq', 'sq-al'],
+      'mk': ['mk', 'mk-mk'],
+      'sr': ['sr', 'sr-rs'],
+      'bs': ['bs', 'bs-ba'],
+      'uk': ['uk', 'uk-ua'],
+      'be': ['be', 'be-by'],
+      'kk': ['kk', 'kk-kz'],
+      'ky': ['ky', 'ky-kg'],
+      'uz': ['uz', 'uz-uz'],
+      'tg': ['tg', 'tg-tj'],
+      'mn': ['mn', 'mn-mn'],
+      'az': ['az', 'az-az'],
+      'ku': ['ku', 'ku-tr'],
+      'ps': ['ps', 'ps-af'],
+      'sd': ['sd', 'sd-pk'],
+      'so': ['so', 'so-so']
+    };
+    
+    const detectedVariants = languageMapping[detectedLang] || [detectedLang];
+    const targetVariants = languageMapping[targetLang] || [targetLang];
+    
+    return detectedVariants.some(detected => 
+      targetVariants.some(target => 
+        detected.toLowerCase() === target.toLowerCase()
+      )
+    );
+  },
+
+  generateTraceId() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
   }
 };
 
@@ -358,7 +572,7 @@ const messageProcessor = {
               isShortAsciiWord );
   },
 
-  async processMessage(element, targetLang) {
+  async processMessage(element, targetLang, provider = 'microsoft') {
     const originalText = translatorState.originalTexts.get(element);
     if (!originalText || !element || !element.isConnected || !element.parentNode) {
       return;
@@ -370,26 +584,21 @@ const messageProcessor = {
     }
 
     try {
-      const translation = await translationService.translateText(originalText, targetLang);
-      
+      const translation = await translationService.translateText(originalText, targetLang, provider);
       
       if (!element || !element.isConnected || !element.parentNode) {
         return;
       }
       
-      
       if (this.shouldShowTranslation(originalText, translation, targetLang)) {
-        
         this.createTranslatedMessage(element, originalText, translation, targetLang);
       } else {
-        
         element.textContent = originalText;
         this.removeTooltip(element);
       }
       
     } catch (error) {
       console.warn('Message translation failed:', error);
-      
       
       if (element && element.parentNode) {
         element.textContent = originalText;
@@ -398,17 +607,14 @@ const messageProcessor = {
     }
   },
 
-  shouldShowTranslation(originalText, translation, targetLang) {
-    
+  shouldShowTranslation(originalText, translation, targetLang) {    
     if (!translation || translation.trim() === '') {
       return false;
     }
     
-    
     if (originalText.toLowerCase().trim() === translation.toLowerCase().trim()) {
       return false;
     }
-    
     
     if (this.isSameLanguage(originalText, translation, targetLang)) {
       return false;
@@ -417,16 +623,13 @@ const messageProcessor = {
     return true;
   },
 
-  isSameLanguage(originalText, translation, targetLang) {
-    
+  isSameLanguage(originalText, translation, targetLang) {    
     const original = originalText.toLowerCase().trim();
     const translated = translation.toLowerCase().trim();
-    
     
     if (original === translated) {
       return true;
     }
-    
     
     const originalClean = original.replace(/[^\w\s]/g, '').trim();
     const translatedClean = translated.replace(/[^\w\s]/g, '').trim();
@@ -435,37 +638,31 @@ const messageProcessor = {
       return true;
     }
     
-    
     const lengthDiff = Math.abs(original.length - translated.length) / original.length;
-    if (lengthDiff < 0.1) { // 長度差異小於10%
+    if (lengthDiff < 0.1) {
       return true;
     }
     
     return false;
   },
 
-  createTranslatedMessage(element, originalText, translation, targetLang) {
-    
+  createTranslatedMessage(element, originalText, translation, targetLang) {    
     if (!element || !element.parentNode) {
       console.warn('Element is invalid, cannot create translated message');
       return;
     }
     
-    
     this.removeTooltip(element);
-    
     
     if (translatorState.translatedElements.size >= translatorState.maxTranslatedElements) {
       const oldestElement = translatorState.translatedElements.keys().next().value;
       this.removeTranslatedElement(oldestElement);
     }
     
-    try {
-      
+    try {      
       element.className = 'translated-message text-fragment';
       element.style.position = 'relative';
       element.style.display = 'inline';
-      
       
   chrome.storage.local.get(['chatTranslationSettings'], (result) => {
       let settings = result.chatTranslationSettings || {};
@@ -479,11 +676,9 @@ const messageProcessor = {
       }
         const customPrefix = settings.customPrefix || '';
         
-        
         const prefix = getTranslationPrefix(targetLang, customPrefix);
         element.textContent = `${prefix} ${translation}`;
       });
-      
       
       const oldHandler = element._translationHandler;
       if (oldHandler) {
@@ -491,16 +686,13 @@ const messageProcessor = {
         element.removeEventListener('mouseleave', oldHandler.mouseleave);
       }
       
-      
       const mouseenterHandler = (e) => {
         console.log('Mouse enter on translated message');
-        
         this.showTooltip(e, originalText);
       };
       
       const mouseleaveHandler = () => {
         console.log('Mouse leave on translated message');
-        
         setTimeout(() => {
           const tooltip = document.getElementById('translation-tooltip');
           if (tooltip) {
@@ -509,25 +701,20 @@ const messageProcessor = {
         }, 100);
       };
       
-      
       element.addEventListener('mouseenter', mouseenterHandler);
       element.addEventListener('mouseleave', mouseleaveHandler);
-      
       
       element._translationHandler = {
         mouseenter: mouseenterHandler,
         mouseleave: mouseleaveHandler
       };
       
-      
       this.initGlobalHandlers();
-      
       
       if (!document.hasTranslationListeners) {
         document.addEventListener('mousemove', this.globalMouseMoveHandler);
         document.hasTranslationListeners = true;
       }
-      
       
       translatorState.originalTexts.set(element, originalText);
       translatorState.translatedElements.set(element, {
@@ -538,7 +725,6 @@ const messageProcessor = {
       
     } catch (error) {
       console.error('Error creating translated message:', error);
-      
       element.textContent = originalText;
     }
   },
@@ -559,7 +745,6 @@ const messageProcessor = {
   },
 
   showTooltip(event, text) {
-    
     this.hideTooltip();
     
     const fullOriginalText = text || '';
@@ -608,7 +793,6 @@ const messageProcessor = {
     console.log('Force hiding all tooltips');
     this.hideTooltip();
     
-    
     const existingTooltips = document.querySelectorAll('.original-text-tooltip');
     existingTooltips.forEach(tooltip => {
       if (tooltip.parentNode) {
@@ -620,10 +804,8 @@ const messageProcessor = {
   removeTranslatedElement(element) {
     if (!element) return;
     
-    
     translatorState.originalTexts.delete(element);
     translatorState.translatedElements.delete(element);
-    
     
     const handler = element._translationHandler;
     if (handler) {
@@ -632,11 +814,10 @@ const messageProcessor = {
       delete element._translationHandler;
     }
     
-    
     let originalText = element.textContent;
     
     supportedLanguages.forEach(lang => {
-      const prefixPattern = lang.prefix.replace(/[\[\]]/g, '\\$&'); // 轉義方括號
+      const prefixPattern = lang.prefix.replace(/[\[\]]/g, '\\$&');
       const regex = new RegExp(`^\\${lang.prefix}\\s*`, 'g');
       originalText = originalText.replace(regex, '');
     });
@@ -649,18 +830,14 @@ const messageProcessor = {
   },
 
   removeTooltip(element) {
-    
     element.classList.remove('translated-message');
     
-    
     this.hideTooltip();
-    
     
     const tooltip = element.querySelector('.original-text-tooltip');
     if (tooltip) {
       tooltip.remove();
     }
-    
     
     const handler = element._translationHandler;
     if (handler) {
@@ -669,10 +846,8 @@ const messageProcessor = {
       delete element._translationHandler;
     }
     
-    
     translatorState.originalTexts.delete(element);
     translatorState.translatedElements.delete(element);
-    
     
     let originalText = element.textContent;
     
@@ -687,16 +862,13 @@ const messageProcessor = {
   },
 
   cleanup() {
-    
     translatorState.translatedElements.forEach((data, element) => {
       this.removeTranslatedElement(element);
     });
     
-    
     translatorState.cache.clear();
     translatorState.originalTexts.clear();
     translatorState.translatedElements.clear();
-    
     
     if (this.globalMouseMoveHandler) {
       document.removeEventListener('mousemove', this.globalMouseMoveHandler);
@@ -704,7 +876,6 @@ const messageProcessor = {
     if (document.hasTranslationListeners) {
       document.hasTranslationListeners = false;
     }
-    
     
     this.forceHideAllTooltips();
     
@@ -718,7 +889,6 @@ const chatMonitor = {
     if (translatorState.watcher) return;
 
     console.log('Starting chat monitor...');
-    
     
     this.waitForChatContainer();
   },
@@ -760,7 +930,6 @@ const chatMonitor = {
       translatorState.watcher = null;
     }
     
-    
     messageProcessor.cleanup();
   },
 
@@ -768,32 +937,29 @@ const chatMonitor = {
     const messages = document.querySelectorAll("span.text-fragment");
     console.log(`Found ${messages.length} existing messages to process`);
     messages.forEach((element) => {
-      
       if (!element.classList.contains('translated-message')) {
         const originalText = element.textContent;
         
         if (!originalText.startsWith('[譯]')) {
           translatorState.originalTexts.set(element, originalText);
-          messageProcessor.processMessage(element, translatorState.targetLang);
+          messageProcessor.processMessage(element, translatorState.targetLang, translatorState.provider);
         }
       }
     });
   },
 
   processNewMessage(node) {
-    
     if (node.matches && node.matches('span.text-fragment')) {
       if (!translatorState.originalTexts.has(node) && !node.classList.contains('translated-message')) {
         const originalText = node.textContent;
         
         if (!originalText.startsWith('[譯]')) {
           translatorState.originalTexts.set(node, originalText);
-          messageProcessor.processMessage(node, translatorState.targetLang);
+          messageProcessor.processMessage(node, translatorState.targetLang, translatorState.provider);
         }
       }
       return;
     }
-    
     
     const messageElement = node.querySelector('span.text-fragment');
     if (messageElement && !translatorState.originalTexts.has(messageElement) && !messageElement.classList.contains('translated-message')) {
@@ -801,10 +967,9 @@ const chatMonitor = {
       
       if (!originalText.startsWith('[譯]')) {
         translatorState.originalTexts.set(messageElement, originalText);
-        messageProcessor.processMessage(messageElement, translatorState.targetLang);
+        messageProcessor.processMessage(messageElement, translatorState.targetLang, translatorState.provider);
       }
     }
-    
     
     const allMessages = node.querySelectorAll('span.text-fragment');
     allMessages.forEach(msg => {
@@ -813,7 +978,7 @@ const chatMonitor = {
         
         if (!originalText.startsWith('[譯]')) {
           translatorState.originalTexts.set(msg, originalText);
-          messageProcessor.processMessage(msg, translatorState.targetLang);
+          messageProcessor.processMessage(msg, translatorState.targetLang, translatorState.provider);
         }
       }
     });
@@ -831,6 +996,7 @@ const controlSystem = {
   setupEventListeners(hiddenContainer) {
     const toggleSwitch = hiddenContainer.querySelector('#chat-translation-toggle');
     const languageSelector = hiddenContainer.querySelector('#chat-language-selector');
+    const providerSelector = hiddenContainer.querySelector('#translationProvider');
     const statusElement = hiddenContainer.querySelector('#chat-translator-status');
 
     toggleSwitch.addEventListener('change', (e) => {
@@ -846,6 +1012,16 @@ const controlSystem = {
       }
       this.saveSettings();
     });
+
+    if (providerSelector) {
+      providerSelector.addEventListener('change', (e) => {
+        translatorState.provider = e.target.value;
+        if (translatorState.enabled) {
+          this.updateTranslationState();
+        }
+        this.saveSettings();
+      });
+    }
     
     const customPrefixInput = hiddenContainer.querySelector('#customPrefix');
     if (customPrefixInput) {
@@ -889,7 +1065,9 @@ const controlSystem = {
 
   saveSettings() {
     const customPrefixInput = document.querySelector('#customPrefix');
+    const providerSelector = document.querySelector('#translationProvider');
     let customPrefix = customPrefixInput ? customPrefixInput.value : '';
+    let provider = providerSelector ? providerSelector.value : 'microsoft';
     
     
     if (customPrefix && customPrefix.trim()) {
@@ -906,6 +1084,7 @@ const controlSystem = {
     chrome.storage.local.set({
       chatTranslationSettings: {
         enabled: translatorState.enabled,
+        provider: provider,
         language: translatorState.targetLang,
         customPrefix: customPrefix
       }
@@ -919,16 +1098,22 @@ const controlSystem = {
       
       translatorState.enabled = settings.enabled === true;
       translatorState.targetLang = settings.language || 'zh-tw';
+      translatorState.provider = settings.provider || 'microsoft';
       
       
       const toggleSwitch = document.querySelector('#chat-translation-toggle');
       const languageSelector = document.querySelector('#chat-language-selector');
+      const providerSelector = document.querySelector('#translationProvider');
       const statusElement = document.querySelector('#chat-translator-status');
       const customPrefixInput = document.querySelector('#customPrefix');
 
       if (toggleSwitch && languageSelector) {
         toggleSwitch.checked = translatorState.enabled === true;
         languageSelector.value = translatorState.targetLang;
+        
+        if (providerSelector) {
+          providerSelector.value = translatorState.provider;
+        }
         
         if (customPrefixInput) {
           customPrefixInput.value = settings.customPrefix || '';
@@ -953,7 +1138,6 @@ const routeDetector = {
   },
   
   setupPathWatcher() {
-    
     const originalPushState = history.pushState;
     const originalReplaceState = history.replaceState;
     
@@ -973,7 +1157,6 @@ const routeDetector = {
   },
   
   setupNavigationListener() {
-    
     document.addEventListener('click', (e) => {
       const link = e.target.closest('a[href]');
       if (link && link.href.includes('twitch.tv')) {
@@ -985,7 +1168,6 @@ const routeDetector = {
   },
   
   setupVisibilityChangeListener() {
-    
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
         setTimeout(() => {
@@ -1001,21 +1183,17 @@ const routeDetector = {
       console.log('Route changed from', this.currentPath, 'to', newPath);
       this.currentPath = newPath;
       
-      
       this.reinitializeTranslator();
     }
   },
   
   reinitializeTranslator() {
-    
     if (translatorState.watcher) {
       translatorState.watcher.disconnect();
       translatorState.watcher = null;
     }
     
-    
     messageProcessor.cleanup();
-    
     
     setTimeout(() => {
       if (translatorState.enabled === true && this.isChatPage()) {
@@ -1026,7 +1204,6 @@ const routeDetector = {
   },
   
   isChatPage() {
-    
     return window.location.pathname.includes('/') && 
            !window.location.pathname.includes('/directory') &&
            !window.location.pathname.includes('/browse') &&
@@ -1039,7 +1216,6 @@ const routeDetector = {
 function initializeChatTranslator() {
   controlSystem.init();
   routeDetector.init();
-  
   
   if (translatorState.enabled === true && routeDetector.isChatPage()) {
     console.log('Chat translator initialized in background mode');
@@ -1055,10 +1231,8 @@ function initializeChatTranslator() {
   initializeChatTranslator();
 }
 
- 
 setTimeout(initializeChatTranslator, 2000);
 
- 
 setInterval(() => {
   if (translatorState.enabled === true && routeDetector.isChatPage() && !translatorState.watcher) {
     console.log('Periodic check: Reinitializing translator');
@@ -1066,11 +1240,9 @@ setInterval(() => {
   }
 }, 5000);
 
- 
 setInterval(() => {
   const tooltip = document.getElementById('translation-tooltip');
   if (tooltip) {
-    
     const translatedElements = document.querySelectorAll('.translated-message');
     let shouldExist = false;
     
@@ -1092,7 +1264,6 @@ setInterval(() => {
   }
 }, 1000);
 
- 
 document.addEventListener('mousemove', (e) => {
   window.mouseX = e.clientX;
   window.mouseY = e.clientY;

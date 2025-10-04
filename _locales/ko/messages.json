@@ -496,6 +496,10 @@
     "message": "채팅 번역 접두사",
     "description": "Chat translation prefix label"
   },
+  "chatTranslationProvider": {
+    "message": "번역 서비스 제공업체",
+    "description": "Translation provider label"
+  },
   "translationHelp": {
     "message": "방송 제목과 설명을 원하는 언어로 번역합니다",
     "description": "Translation help text"

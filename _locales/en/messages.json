@@ -492,6 +492,10 @@
     "message": "Chat translation prefix",
     "description": "Chat translation prefix label"
   },
+  "chatTranslationProvider": {
+    "message": "Translation Provider",
+    "description": "Translation provider label"
+  },
   "translationHelp": {
     "message": "Translate stream titles and descriptions to your preferred language",
     "description": "Translation help text"

@@ -493,6 +493,10 @@
     "message": "チャット翻訳プレフィックス",
     "description": "Chat translation prefix label"
   },
+  "chatTranslationProvider": {
+    "message": "翻訳サービスプロバイダー",
+    "description": "Translation provider label"
+  },
   "translationHelp": {
     "message": "配信タイトルと説明を希望する言語に翻訳します",
     "description": "Translation help text"

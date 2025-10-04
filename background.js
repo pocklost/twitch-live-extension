@@ -974,6 +974,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         if (next.translationEnabled === undefined) {
           next.translationEnabled = false;
         }
+        if (!next.translationProvider) {
+          next.translationProvider = 'microsoft';
+        }
         if (!next.targetLanguage) {
           next.targetLanguage = 'en';
         }
