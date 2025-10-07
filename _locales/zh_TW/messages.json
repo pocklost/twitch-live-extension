@@ -335,6 +335,10 @@
     "message": "尚未添加任何頻道<br>請前往設定分頁添加頻道",
     "description": "No channels description"
   },
+  "unableToLoadChannels": {
+    "message": "無法載入頻道資料",
+    "description": "Unable to load channels data message"
+  },
   "addedOn": {
     "message": "添加於",
     "description": "Added on label"
@@ -476,6 +480,19 @@
     "description": "Hint after authorization to enable auto follow in settings"
   }
   ,
+  "autoFollowPromptTitle": {
+    "message": "啟用自動追蹤？",
+    "description": "Prompt title for enabling auto follow"
+  },
+  "autoFollowPromptMessage": {
+    "message": "啟用後會自動同步你<br> Twitch 帳號追隨的實況主",
+    "description": "Prompt message for enabling auto follow"
+  },
+  "enableAction": {
+    "message": "啟用",
+    "description": "Enable action label"
+  }
+  ,
   "chatTranslationSettings": {
     "message": "聊天室翻譯設定",
     "description": "Chat translation settings section title"
@@ -556,5 +573,80 @@
   "useKDisplay": {
     "message": "使用 K 格式顯示觀眾人數",
     "description": "Use K format for viewer count checkbox"
+  },
+  "vodsShort": {
+    "message": "直播紀錄",
+    "description": "VODs 在繁中本地化顯示"
+  },
+  "viewVods": {
+    "message": "查看直播紀錄",
+    "description": "VOD 按鈕的提示/標題"
+  },
+  "loadingVods": {
+    "message": "正在載入直播紀錄...",
+    "description": "VOD 視窗的載入中文案"
+  },
+  "errorLoadingVods": {
+    "message": "載入直播紀錄發生錯誤：$1",
+    "description": "載入 VODs 失敗時的錯誤訊息",
+    "placeholders": {
+      "error": { "content": "$1", "example": "未知錯誤" }
+    }
+  },
+  "noVodsFoundForChannel": {
+    "message": "此頻道沒有直播紀錄",
+    "description": "VOD 清單為空時的訊息"
+  },
+  "todayLabel": {
+    "message": "今天",
+    "description": "相對日期：今天"
+  },
+  "yesterdayLabel": {
+    "message": "昨天",
+    "description": "相對日期：昨天"
+  },
+  "daysAgo": {
+    "message": "$1 天前",
+    "description": "相對日期：N 天前",
+    "placeholders": {
+      "days": { "content": "$1", "example": "3" }
+    }
+  }
+  ,
+  "goToChannel": {
+    "message": "頻道",
+    "description": "前往頻道按鈕"
+  }
+  ,
+  "followAgeHoursMinutes": {
+    "message": "已追蹤 $1 小時 $2 分鐘",
+    "description": "小於一天時的追蹤時間顯示",
+    "placeholders": {
+      "hours": { "content": "$1", "example": "3" },
+      "minutes": { "content": "$2", "example": "15" }
+    }
+  },
+  "followingFor": {
+    "message": "已追蹤",
+    "description": "追蹤時間前綴（後備）"
+  }
+  ,
+  "loadingMoreVods": {
+    "message": "載入更多...",
+    "description": "載入更多 VOD 狀態"
+  },
+  "noMoreVods": {
+    "message": "到底了",
+    "description": "沒有更多 VOD"
+  }
+  ,
+  "favoriteShort": {
+    "message": "我的最愛",
+    "description": "我的最愛短字"
+  }
+  ,
+  "subscriberOnly": {
+    "message": "訂閱",
+    "description": "訂閱者限定影片徽章"
   }
 }

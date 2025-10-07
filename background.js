@@ -3,7 +3,7 @@ const TWITCH_OAUTH_BASE = 'https://id.twitch.tv/oauth2/authorize';
 const TWITCH_TOKEN_BASE = 'https://id.twitch.tv/oauth2/token';
 
 const TWITCH_CLIENT_ID = 'pujtelt7e3go829amtruwhoeido1rx';
-const REDIRECT_URI = chrome.identity ? chrome.identity.getRedirectURL() : 'http://localhost';
+const REDIRECT_URI = chrome.identity ? chrome.identity.getRedirectURL() : 'https://www.twitch.tv';
 
 const STORAGE = {
   channels: 'tsn_channels',
@@ -128,56 +128,52 @@ class StreamStateManager {
     });
     
     try {
-      const tab = await chrome.tabs.create({ url: authUrl });
-      
+      const win = await chrome.windows.create({ url: authUrl, type: 'popup', width: 600, height: 800, focused: true });
+      const windowId = win.id;
+      let tabs = await chrome.tabs.query({ windowId });
+      const tabId = tabs && tabs[0] ? tabs[0].id : null;
+      if (!tabId) throw new Error('Authorization popup tab not found');
+
       return new Promise((resolve, reject) => {
-        const checkTab = () => {
-          chrome.tabs.get(tab.id, (currentTab) => {
-            if (chrome.runtime.lastError) {
-              console.log('Tab check error:', chrome.runtime.lastError.message);
-              reject(new Error('Authorization tab was closed or not accessible'));
-              return;
-            }
-            
+        const checkTab = async () => {
+          try {
+            const currentTab = await chrome.tabs.get(tabId);
             if (!currentTab || !currentTab.url) {
-              console.log('Tab or URL not available, continuing to check...');
               setTimeout(checkTab, 1000);
               return;
             }
-            
             if (currentTab.url.includes('access_token=')) {
               const url = new URL(currentTab.url);
               const fragment = url.hash.substring(1);
               const params = new URLSearchParams(fragment);
               const accessToken = params.get('access_token');
-              
               if (accessToken) {
-                this.write({
+                await this.write({
                   [STORAGE.accessToken]: accessToken,
                   [STORAGE.tokenExpiry]: Date.now() + (365 * 24 * 60 * 60 * 1000)
-                }).then(() => {
-                  chrome.tabs.update(tab.id, {
-                    url: chrome.runtime.getURL('authorization-success.html')
-                  });
-                  console.log('User authorized successfully');
-                  resolve(accessToken);
                 });
+                await chrome.tabs.update(tabId, { url: chrome.runtime.getURL('authorization-success.html') });
+                console.log('User authorized successfully');
+                resolve(accessToken);
+                return;
               } else {
-                chrome.tabs.remove(tab.id);
+                await chrome.windows.remove(windowId);
                 reject(new Error('No access token received'));
+                return;
               }
             } else if (currentTab.url.includes('error=')) {
-              chrome.tabs.remove(tab.id);
+              await chrome.windows.remove(windowId);
               reject(new Error('Authorization was denied or failed'));
+              return;
             } else {
               setTimeout(checkTab, 1000);
             }
-          });
+          } catch (e) {
+            reject(new Error('Authorization window was closed or not accessible'));
+          }
         };
-        
         setTimeout(checkTab, 2000);
       });
-      
     } catch (error) {
       console.error('Authorization failed:', error);
       throw error;
@@ -419,6 +415,135 @@ class StreamStateManager {
     }
   }
 
+  async getChannelVods(username, accessToken, limit = 20, after = null) {
+    try {
+      console.log(`Getting VODs for channel: ${username}`);
+      
+      const userResponse = await fetch(`${TWITCH_API_BASE}/users?login=${username}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Client-Id': TWITCH_CLIENT_ID
+        }
+      });
+      
+      if (!userResponse.ok) {
+        throw new Error(`Failed to get user info: ${userResponse.status}`);
+      }
+      
+      const userData = await userResponse.json();
+      if (!userData.data || userData.data.length === 0) {
+        throw new Error('User not found');
+      }
+      
+      const userId = userData.data[0].id;
+      console.log(`User ID for ${username}: ${userId}`);
+      
+      const vodsUrl = `${TWITCH_API_BASE}/videos?user_id=${userId}&type=archive&first=${limit}${after ? `&after=${after}` : ''}`;
+      console.log(`Fetching VODs from: ${vodsUrl}`);
+      
+      const vodsResponse = await fetch(vodsUrl, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Client-Id': TWITCH_CLIENT_ID
+        }
+      });
+      
+      if (!vodsResponse.ok) {
+        const errorText = await vodsResponse.text();
+        console.error(`Failed to get VODs: ${vodsResponse.status} ${vodsResponse.statusText}`, errorText);
+        throw new Error(`Failed to get VODs: ${vodsResponse.status} - ${errorText}`);
+      }
+      
+      const vodsData = await vodsResponse.json();
+      console.log(`Found ${vodsData.data?.length || 0} VODs for ${username}`);
+      const items = vodsData.data || [];
+      const parseTokenRestricted = (val) => {
+        try {
+          const tok = JSON.parse(val || '{}');
+          const chansub = tok?.chansub || {};
+          const list = Array.isArray(chansub?.restricted_bitrates) ? chansub.restricted_bitrates : [];
+          const hasHi = list.some(q => ['chunked','1080p60','1080p','900p60','720p60','720p'].includes(String(q).toLowerCase()));
+          const untilZero = typeof chansub?.view_until === 'number' && chansub.view_until === 0;
+          return !!(hasHi || untilZero);
+        } catch (_) { return false; }
+      };
+      const batchedFetch = async (vodIds) => {
+        const makePersistedEntry = (id) => ({
+          operationName: 'PlaybackAccessToken',
+          variables: { vodID: String(id), playerType: 'site' },
+          extensions: { persistedQuery: { version: 1, sha256Hash: '0828119ded1c146d1b26445102f0d6c2e94c32ad9d19d9a16c76b0ae6d2a5c6d' } }
+        });
+        const makeQueryEntry = (id) => ({
+          operationName: 'PlaybackAccessToken',
+          variables: { vodID: String(id), playerType: 'site' },
+          query: 'query PlaybackAccessToken($vodID: ID!, $playerType: String!) {\n  videoPlaybackAccessToken(id: $vodID, params: {platform: "web", playerBackend: "mediaplayback", playerType: $playerType}) {\n    value\n    signature\n    __typename\n  }\n}'
+        });
+        const headers = { 'Client-ID': 'kimne78kx3ncx6brgo4mv6wki5h1ko', 'Content-Type': 'application/json' };
+        const persistedBody = JSON.stringify(vodIds.map(makePersistedEntry));
+        const r1 = await fetch('https://gql.twitch.tv/gql', { method: 'POST', headers, body: persistedBody });
+        let results = [];
+        let needFallback = [];
+        if (r1.ok) {
+          const arr = await r1.json();
+          results = Array.isArray(arr) ? arr : [];
+          results.forEach((res, idx) => {
+            if (Array.isArray(res?.errors) && res.errors.some(e => String(e?.message).includes('PersistedQueryNotFound'))) {
+              needFallback.push(vodIds[idx]);
+            }
+          });
+        } else {
+          needFallback = vodIds.slice();
+        }
+        if (needFallback.length > 0) {
+          const fallbackBody = JSON.stringify(needFallback.map(makeQueryEntry));
+          const r2 = await fetch('https://gql.twitch.tv/gql', { method: 'POST', headers, body: fallbackBody });
+          if (r2.ok) {
+            const arr2 = await r2.json();
+            const mapIndex = new Map(needFallback.map((id, i) => [id, i]));
+            vodIds.forEach((id, idx) => {
+              if (needFallback.includes(id)) {
+                const i2 = mapIndex.get(id);
+                results[idx] = Array.isArray(arr2) ? arr2[i2] : undefined;
+              }
+            });
+          }
+        }
+        const idToFlag = new Map();
+        vodIds.forEach((id, idx) => {
+          const res = results[idx];
+          if (!res || Array.isArray(res?.errors)) {
+            idToFlag.set(id, false);
+          } else {
+            const val = res?.data?.videoPlaybackAccessToken?.value;
+            idToFlag.set(id, parseTokenRestricted(val));
+          }
+        });
+        return idToFlag;
+      };
+      const batchSize = 30;
+      const vodIds = items.map(v => v.id);
+      const flagsMap = new Map();
+      for (let i = 0; i < vodIds.length; i += batchSize) {
+        const slice = vodIds.slice(i, i + batchSize);
+        try {
+          const part = await Promise.race([
+            batchedFetch(slice),
+            new Promise((resolve) => setTimeout(() => resolve(new Map(slice.map(id => [id, false]))), 2000))
+          ]);
+          part.forEach((val, key) => flagsMap.set(key, !!val));
+        } catch (_) {
+          slice.forEach(id => flagsMap.set(id, false));
+        }
+      }
+      const enriched = items.map(v => ({ ...v, isSubscriberOnly: !!flagsMap.get(v.id) }));
+      return { items: enriched, cursor: vodsData.pagination?.cursor || null };
+      
+    } catch (error) {
+      console.error(`Error getting VODs for ${username}:`, error);
+      throw error;
+    }
+  }
+
 
   async updateBadge(onlineCount) {
     try {
@@ -541,6 +666,26 @@ class StreamStateManager {
 }
 
 const tracker = new StreamStateManager();
+
+async function handleVodRequest(msg, sendResponse) {
+  console.log('VOD request received:', msg);
+  try {
+    const accessToken = await tracker.getAccessToken();
+    if (!accessToken) {
+      console.log('No access token available for VOD request');
+      sendResponse({ error: 'No access token available' });
+      return;
+    }
+    
+    console.log('Getting VODs for username:', msg.username);
+    const { items, cursor } = await tracker.getChannelVods(msg.username, accessToken, msg.limit || 20, msg.after || null);
+    console.log('VODs retrieved successfully:', items.length, 'cursor:', cursor);
+    sendResponse({ ok: true, items, cursor });
+  } catch (e) {
+    console.error('Error getting VODs:', e);
+    sendResponse({ error: String(e?.message || e) });
+  }
+}
 
 async function performPollAndBroadcast() {
   const settingsObj = await tracker.read([STORAGE.settings]);
@@ -1324,9 +1469,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           STORAGE.settings,
           STORAGE.channels,
           STORAGE.notificationSettings,
-          STORAGE.followDates,
-          STORAGE.lastStreamTimes
+          STORAGE.followDates
         ]);
+        
+        const localData = await chrome.storage.local.get(['tsn_favorites']);
+        console.log('Favorites data from storage:', localData.tsn_favorites);
         
         const localTimestamp = (() => {
           try {
@@ -1344,8 +1491,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           channels: allData[STORAGE.channels] || [],
           notificationSettings: allData[STORAGE.notificationSettings] || {},
           followDates: allData[STORAGE.followDates] || {},
-          lastStreamTimes: allData[STORAGE.lastStreamTimes] || {}
+          tsn_favorites: localData.tsn_favorites || {}
         };
+        
+        console.log('Export data includes favorites:', exportData.tsn_favorites);
         
         console.log('Settings exported:', exportData);
         sendResponse({ ok: true, data: exportData });
@@ -1387,8 +1536,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           importPromises.push(tracker.write({ [STORAGE.followDates]: importData.followDates }));
         }
         
-        if (importData.lastStreamTimes) {
-          importPromises.push(tracker.write({ [STORAGE.lastStreamTimes]: importData.lastStreamTimes }));
+        if (importData.tsn_favorites) {
+          importPromises.push(chrome.storage.local.set({ tsn_favorites: importData.tsn_favorites }));
         }
         
         await Promise.all(importPromises);
@@ -1436,6 +1585,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         console.error('Error updating translation settings:', e);
         sendResponse({ error: String(e?.message || e) });
       }
+      return;
+    }
+    if (msg?.type === 'vods:get') {
+      handleVodRequest(msg, sendResponse);
       return;
     }
     if (msg?.action === 'openSettings') {

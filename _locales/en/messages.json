@@ -328,12 +328,16 @@
     "description": "Search channels placeholder"
   },
   "channelManagement": {
-    "message": "Channel Management",
+    "message": "Management",
     "description": "Channel management title"
   },
   "noChannelsDescription": {
     "message": "No channels have been added yet<br>Please go to the settings tab to add channels",
     "description": "No channels description"
+  },
+  "unableToLoadChannels": {
+    "message": "Unable to load channels data",
+    "description": "Unable to load channels data message"
   },
   "addedOn": {
     "message": "Added on",
@@ -476,6 +480,19 @@
     "description": "Hint after authorization to enable auto follow in settings"
   }
   ,
+  "autoFollowPromptTitle": {
+    "message": "Enable Auto Tracking?",
+    "description": "Prompt title for enabling auto follow"
+  },
+  "autoFollowPromptMessage": {
+    "message": "When enabled, it will automatically sync streamers you follow on your Twitch account",
+    "description": "Prompt message for enabling auto follow"
+  },
+  "enableAction": {
+    "message": "Enable",
+    "description": "Enable action label"
+  }
+  ,
   "chatTranslationSettings": {
     "message": "Chat Translation Settings",
     "description": "Chat translation settings section title"
@@ -556,5 +573,80 @@
   "useKDisplay": {
     "message": "Use K format for viewer count",
     "description": "Use K format for viewer count checkbox"
+  },
+  "vodsShort": {
+    "message": "Videos",
+    "description": "Localized label for VODs"
+  },
+  "viewVods": {
+    "message": "View Videos",
+    "description": "Tooltip/title for VOD button"
+  },
+  "loadingVods": {
+    "message": "Loading VODs...",
+    "description": "Loading text for VOD modal"
+  },
+  "errorLoadingVods": {
+    "message": "Error loading VODs: $1",
+    "description": "Error message when loading VODs fails",
+    "placeholders": {
+      "error": { "content": "$1", "example": "Unknown error" }
+    }
+  },
+  "noVodsFoundForChannel": {
+    "message": "No VODs found for this channel",
+    "description": "Empty VOD list message"
+  },
+  "todayLabel": {
+    "message": "Today",
+    "description": "Relative date: Today"
+  },
+  "yesterdayLabel": {
+    "message": "Yesterday",
+    "description": "Relative date: Yesterday"
+  },
+  "daysAgo": {
+    "message": "$1 days ago",
+    "description": "Relative date: N days ago",
+    "placeholders": {
+      "days": { "content": "$1", "example": "3" }
+    }
+  }
+  ,
+  "goToChannel": {
+    "message": "Channel",
+    "description": "Go to channel button"
+  }
+  ,
+  "followAgeHoursMinutes": {
+    "message": "Following for $1 hours $2 minutes",
+    "description": "Follow age when under 1 day",
+    "placeholders": {
+      "hours": { "content": "$1", "example": "3" },
+      "minutes": { "content": "$2", "example": "15" }
+    }
+  },
+  "followingFor": {
+    "message": "Following for",
+    "description": "Prefix used when building follow age fallback"
+  }
+  ,
+  "loadingMoreVods": {
+    "message": "Loading more...",
+    "description": "Status while loading more VODs"
+  },
+  "noMoreVods": {
+    "message": "You've reached the end",
+    "description": "Status when no more VODs"
+  }
+  ,
+  "favoriteShort": {
+    "message": "Fav",
+    "description": "Favorites short label"
+  }
+  ,
+  "subscriberOnly": {
+    "message": "Sub",
+    "description": "Badge label for subscriber-only videos"
   }
 }

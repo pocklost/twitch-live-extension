@@ -163,6 +163,10 @@
     "message": "まだチャンネルが追加されていません<br>設定タブでチャンネルを追加してください",
     "description": "No channels description"
   },
+  "unableToLoadChannels": {
+    "message": "チャンネルデータを読み込めません",
+    "description": "Unable to load channels data message"
+  },
   "loadChannelsFailed": {
     "message": "チャンネルの読み込みに失敗",
     "description": "Load channels failed message"
@@ -477,6 +481,19 @@
     "description": "Hint after authorization to enable auto follow in settings"
   }
   ,
+  "autoFollowPromptTitle": {
+    "message": "自動追跡を有効にしますか？",
+    "description": "Prompt title for enabling auto follow"
+  },
+  "autoFollowPromptMessage": {
+    "message": "有効にすると、あなたの Twitch アカウントでフォロー中の配信者を自動同期します",
+    "description": "Prompt message for enabling auto follow"
+  },
+  "enableAction": {
+    "message": "有効にする",
+    "description": "Enable action label"
+  }
+  ,
   "chatTranslationSettings": {
     "message": "チャット翻訳設定",
     "description": "Chat translation settings section title"
@@ -542,5 +559,80 @@
   "useKDisplay": {
     "message": "視聴者数をK形式で表示",
     "description": "Use K format for viewer count checkbox"
+  },
+  "vodsShort": {
+    "message": "ビデオ",
+    "description": "VOD の日本語表記"
+  },
+  "viewVods": {
+    "message": "ビデオを表示",
+    "description": "VOD ボタンのツールチップ/タイトル"
+  },
+  "loadingVods": {
+    "message": "ビデオを読み込み中...",
+    "description": "VOD モーダルの読み込み文言"
+  },
+  "errorLoadingVods": {
+    "message": "ビデオの読み込みエラー：$1",
+    "description": "VOD 読み込み失敗時のエラーメッセージ",
+    "placeholders": {
+      "error": { "content": "$1", "example": "不明なエラー" }
+    }
+  },
+  "noVodsFoundForChannel": {
+    "message": "このチャンネルにビデオはありません",
+    "description": "VOD リストが空の場合のメッセージ"
+  },
+  "todayLabel": {
+    "message": "今日",
+    "description": "相対日付：今日"
+  },
+  "yesterdayLabel": {
+    "message": "昨日",
+    "description": "相対日付：昨日"
+  },
+  "daysAgo": {
+    "message": "$1 日前",
+    "description": "相対日付：N 日前",
+    "placeholders": {
+      "days": { "content": "$1", "example": "3" }
+    }
+  }
+  ,
+  "goToChannel": {
+    "message": "チャンネル",
+    "description": "Go to channel button"
+  }
+  ,
+  "followAgeHoursMinutes": {
+    "message": "$1 時間 $2 分フォロー中",
+    "description": "1日未満のフォロー期間の表示",
+    "placeholders": {
+      "hours": { "content": "$1", "example": "3" },
+      "minutes": { "content": "$2", "example": "15" }
+    }
+  },
+  "followingFor": {
+    "message": "フォロー中",
+    "description": "フォロー期間の接頭辞（フォールバック）"
+  }
+  ,
+  "loadingMoreVods": {
+    "message": "さらに読み込み中...",
+    "description": "VOD 追加読み込みのステータス"
+  },
+  "noMoreVods": {
+    "message": "これ以上ありません",
+    "description": "VOD の末尾"
+  }
+  ,
+  "favoriteShort": {
+    "message": "お気に入り",
+    "description": "Favorites short label"
+  }
+  ,
+  "subscriberOnly": {
+    "message": "サブ",
+    "description": "サブスク限定動画のバッジ"
   }
 }

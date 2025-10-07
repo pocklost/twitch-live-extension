@@ -16,6 +16,9 @@ window.addEventListener('load', function () {
   if (messageEl) messageEl.textContent = t('authSuccessMessage', 'Your Twitch account has been authorized successfully');
   var hintEl = document.getElementById('hint');
   if (hintEl) hintEl.textContent = t('enableAutoFollowHint', "Tip: To auto-fetch followed streamers, enable 'Auto Tracking' in Settings");
+  setTimeout(function(){
+    try { window.close(); } catch (e) {}
+  }, 5000);
 });
 
 

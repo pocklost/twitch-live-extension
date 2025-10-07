@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_extensionName__",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "__MSG_extensionDescription__",
   "default_locale": "en",
   "icons": {
@@ -18,14 +18,14 @@
     "storage",
     "notifications",
     "alarms",
-    "activeTab",
-    "tabs"
+    "activeTab"
   ],
   "host_permissions": [
     "https://api.twitch.tv/*",
     "https://id.twitch.tv/*",
     "https://static-cdn.jtvnw.net/*",
     "https://www.twitch.tv/*",
+    "https://gql.twitch.tv/*",
     "https://translate.googleapis.com/*",
     "https://api-edge.cognitive.microsofttranslator.com/*",
     "https://edge.microsoft.com/*"
@@ -40,9 +40,12 @@
   "web_accessible_resources": [
     {
       "resources": ["authorization-success.html", "authorization-success.js"],
-      "matches": ["<all_urls>"]
+      "matches": ["https://www.twitch.tv/*"]
     }
-  ]
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://api.twitch.tv https://id.twitch.tv https://gql.twitch.tv https://translate.googleapis.com https://api-edge.cognitive.microsofttranslator.com https://edge.microsoft.com; frame-ancestors 'none';"
+  }
 }
 
 

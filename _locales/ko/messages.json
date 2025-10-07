@@ -335,6 +335,10 @@
     "message": "아직 추가된 채널이 없습니다<br>설정 탭에서 채널을 추가해주세요",
     "description": "No channels description"
   },
+  "unableToLoadChannels": {
+    "message": "채널 데이터를 불러올 수 없습니다",
+    "description": "Unable to load channels data message"
+  },
   "addedOn": {
     "message": "추가일",
     "description": "Added on label"
@@ -476,6 +480,19 @@
     "description": "Hint after authorization to enable auto follow in settings"
   }
   ,
+  "autoFollowPromptTitle": {
+    "message": "자동 추적을 활성화할까요?",
+    "description": "Prompt title for enabling auto follow"
+  },
+  "autoFollowPromptMessage": {
+    "message": "활성화하면 Twitch 계정에서 팔로우한 스트리머를 자동으로 동기화합니다",
+    "description": "Prompt message for enabling auto follow"
+  },
+  "enableAction": {
+    "message": "활성화",
+    "description": "Enable action label"
+  }
+  ,
   "chatTranslationSettings": {
     "message": "채팅 번역 설정",
     "description": "Chat translation settings section title"
@@ -541,5 +558,80 @@
   "useKDisplay": {
     "message": "시청자 수를 K 형식으로 표시",
     "description": "Use K format for viewer count checkbox"
+  },
+  "vodsShort": {
+    "message": "라이브 기록",
+    "description": "VOD의 한국어 표기"
+  },
+  "viewVods": {
+    "message": "라이브 기록 보기",
+    "description": "VOD 버튼 툴팁/제목"
+  },
+  "loadingVods": {
+    "message": "라이브 기록 불러오는 중...",
+    "description": "VOD 모달의 로딩 문구"
+  },
+  "errorLoadingVods": {
+    "message": "라이브 기록 로딩 오류: $1",
+    "description": "VOD 로딩 실패 시 오류 메시지",
+    "placeholders": {
+      "error": { "content": "$1", "example": "알 수 없는 오류" }
+    }
+  },
+  "noVodsFoundForChannel": {
+    "message": "이 채널에는 라이브 기록이 없습니다",
+    "description": "VOD 목록이 비어 있을 때 메시지"
+  },
+  "todayLabel": {
+    "message": "오늘",
+    "description": "상대 날짜: 오늘"
+  },
+  "yesterdayLabel": {
+    "message": "어제",
+    "description": "상대 날짜: 어제"
+  },
+  "daysAgo": {
+    "message": "$1일 전",
+    "description": "상대 날짜: N일 전",
+    "placeholders": {
+      "days": { "content": "$1", "example": "3" }
+    }
+  }
+  ,
+  "goToChannel": {
+    "message": "채널",
+    "description": "Go to channel button"
+  }
+  ,
+  "followAgeHoursMinutes": {
+    "message": "$1시간 $2분 팔로우 중",
+    "description": "하루 미만일 때의 팔로우 기간 표시",
+    "placeholders": {
+      "hours": { "content": "$1", "example": "3" },
+      "minutes": { "content": "$2", "example": "15" }
+    }
+  },
+  "followingFor": {
+    "message": "팔로우 중",
+    "description": "팔로우 기간 접두사(백업)"
+  }
+  ,
+  "loadingMoreVods": {
+    "message": "더 불러오는 중...",
+    "description": "VOD 추가 로딩 상태"
+  },
+  "noMoreVods": {
+    "message": "끝까지 도달했습니다",
+    "description": "더 이상 VOD 없음"
+  }
+  ,
+  "favoriteShort": {
+    "message": "즐겨찾기",
+    "description": "Favorites short label"
+  }
+  ,
+  "subscriberOnly": {
+    "message": "구독",
+    "description": "구독 전용 동영상 배지"
   }
 }

@@ -179,7 +179,7 @@
         height: calc(100vh - 120px);
         overflow-y: auto;
         padding: var(--spacing-sm);
-        margin-top: 48px;
+        margin-top: 50px;
         margin-bottom: 70px;
       }
 
@@ -239,68 +239,124 @@
 
       .offline-section {
         margin-top: var(--spacing-md);
+        margin-bottom: var(--spacing-md);
         border-top: 1px solid var(--border-light);
+        padding-top: var(--spacing-md);
       }
 
       .offline-header {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        padding: var(--spacing-sm) var(--spacing-md);
-        background: var(--bg-tertiary);
-        cursor: pointer;
-        user-select: none;
-        transition: background-color 0.2s ease;
-      }
-
-      .offline-header:hover {
-        background: var(--bg-secondary);
+        margin-bottom: var(--spacing-md);
       }
 
       .offline-title {
-        font-size: 12px;
-        font-weight: 500;
-        color: var(--text-muted);
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-secondary);
       }
 
-      .offline-toggle {
-        font-size: 12px;
-        color: var(--text-muted);
-        transition: transform 0.2s ease;
+      .offline-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: var(--spacing-sm);
+        margin: 0;
+        padding: 0;
       }
 
-      .offline-content {
-        max-height: 300px;
-        overflow-y: auto;
-        transition: max-height 0.3s ease;
-      }
-
-      .offline-content::-webkit-scrollbar {
-        width: 4px;
-      }
-
-      .offline-content::-webkit-scrollbar-track {
-        background: transparent;
-      }
-
-      .offline-content::-webkit-scrollbar-thumb {
-        background: var(--border-medium);
-        border-radius: 2px;
-      }
-
-      .offline-content::-webkit-scrollbar-thumb:hover {
-        background: var(--text-muted);
-      }
-
-      .offline-content.collapsed {
-        max-height: 0;
+      .offline-card {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-md);
+        padding: var(--spacing-md);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
         overflow: hidden;
       }
 
-      .offline-list {
-        list-style: none;
-        margin: 0;
-        padding: 0;
+      .offline-card:hover {
+        border-color: var(--primary);
+        box-shadow: var(--shadow-subtle);
+        transform: translateY(-1px);
+      }
+
+      .offline-card-content {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+      }
+
+      .offline-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--bg-tertiary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .offline-avatar-placeholder {
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .offline-info {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .offline-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .offline-status {
+        font-size: 11px;
+        color: var(--text-muted);
+        background: var(--bg-tertiary);
+        padding: 2px 6px;
+        border-radius: 8px;
+        display: inline-block;
+      }
+
+      .offline-card .remove-btn {
+        position: absolute;
+        top: var(--spacing-sm);
+        right: var(--spacing-sm);
+        width: 20px;
+        height: 20px;
+        border: none;
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: all 0.2s ease;
+        z-index: 10;
+      }
+
+      .offline-card:hover .remove-btn {
+        opacity: 1;
+      }
+
+      .offline-card .remove-btn:hover {
+        background: rgba(239, 68, 68, 0.2);
+        transform: scale(1.1);
       }
 
       .offline-item {
@@ -352,8 +408,8 @@
       }
 
       .stream-thumbnail {
-        width: 120px;
-        height: 68px;
+        width: 140px;
+        height: 78px;
         border-radius: var(--radius-sm);
         overflow: hidden;
         background: var(--bg-tertiary);
@@ -371,6 +427,19 @@
         display: block;
         transform: translateZ(0);
       }
+      .stream-thumbnail .live-time-badge {
+        position: absolute;
+        right: 6px;
+        bottom: 6px;
+        background: rgba(0,0,0,0.65);
+        color: #fff;
+        padding: 1px 6px;
+        border-radius: 10px;
+        font-size: 10px;
+        font-weight: 600;
+        border: 1px solid rgba(255,255,255,0.12);
+        pointer-events: none;
+      }
 
       .stream-info {
         flex: 1;
@@ -378,7 +447,7 @@
       }
 
       .stream-title {
-        font-size: 14px;
+        font-size: 13.7px;
         font-weight: 600;
         color: var(--text-primary);
         margin-bottom: var(--spacing-xs);
@@ -409,9 +478,13 @@
       }
 
       .streamer-name {
+	    font-size: 12.5px;
         font-weight: 500;
         color: var(--text-primary);
-        white-space: nowrap;
+        white-space: normal;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        line-height: 1.3;
       }
 
       .game-name {
@@ -428,6 +501,20 @@
         text-overflow: ellipsis;
         white-space: nowrap;
         flex-shrink: 0;
+      }
+
+      .game-name-full {
+        max-width: none;
+        white-space: normal;
+        word-wrap: break-word;
+        line-height: 1.3;
+        min-height: 1.3em;
+        max-height: 2.6em;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
       }
 
       .stream-stats {
@@ -554,13 +641,18 @@
         position: relative;
         min-height: 80px;
         overflow: hidden;
+        cursor: pointer;
       }
 
       .channel-item:hover {
         background: var(--bg-tertiary);
-        border-color: var(--border-medium);
+        border-color: var(--primary);
         transform: translateY(-1px);
         box-shadow: var(--shadow-subtle);
+      }
+
+      .channel-item.fade-in {
+        animation: fadeIn 0.3s ease-out;
       }
 
       .channel-header {
@@ -588,15 +680,22 @@
         text-decoration: none;
         transition: color 0.2s ease;
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 8px;
         flex: 1;
         min-width: 0;
       }
 
+      .channel-name span {
+        white-space: normal;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        line-height: 1.3;
+      }
+
       .channel-name:hover {
         color: var(--primary-dark);
-        text-decoration: underline;
+        text-decoration: none;
       }
 
       .channel-details {
@@ -680,17 +779,367 @@
       }
       .btn-logout:hover { background: rgba(239, 68, 68, 0.14); }
 
+      .channel-footer {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .channel-hr {
+        height: 1px;
+        background: var(--border-medium);
+        border: none;
+        width: 100%;
+        opacity: 1;
+      }
+
+      .channel-item:hover .channel-hr {
+        background: var(--border-medium); /* 保持可見，不隨 hover 變淡 */
+        opacity: 1;
+      }
+	  
       .channel-notification {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        margin-top: auto;
+        justify-content: space-between; /* 左右放：左文字，右開關 */
+        gap: 10px;
+        width: 100%;
+        min-width: 0;
       }
 
       .notification-label {
         font-size: 12px;
         color: var(--text-secondary);
         font-weight: 500;
+        white-space: nowrap;
+      }
+
+      .notification-label {
+        font-size: 12px;
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+
+      .channel-footer .channel-actions {
+        display: flex;
+        gap: 5px;
+        justify-content: center;
+        width: 100%;
+        margin-left: 0;
+      }
+
+      .channels-header .channel-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .btn-vod {
+        padding: 6px 10px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        white-space: nowrap;
+      }
+
+      .btn-vod:hover {
+        background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      }
+
+      .btn-vod:disabled {
+        background: var(--text-muted);
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+
+      .btn-go-channel {
+        padding: 6px 10px;
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border: 1px solid var(--border-light);
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      @media (max-width: 380px) {
+        .channel-footer { gap: 8px; }
+        .channel-actions { justify-content: center; }
+      }
+
+      .btn-go-channel:hover {
+        background: var(--bg-secondary);
+        border-color: var(--primary);
+        color: var(--primary);
+        transform: translateY(-2px);
+      }
+
+      /* VOD Sidebar Styles */
+      .vod-modal {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 0;
+        background: var(--bg-secondary);
+        z-index: 10000;
+        overflow: hidden;
+        transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+        border-left: 1px solid var(--border-light);
+      }
+
+      .vod-modal.open {
+        width: 400px;
+      }
+
+      .vod-modal-content {
+        width: 400px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg-secondary);
+      }
+
+      .vod-modal-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--border-light);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--bg-primary);
+        flex-shrink: 0;
+      }
+
+      .vod-modal-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .vod-modal-close {
+        width: 32px;
+        height: 32px;
+        border: none;
+        background: var(--bg-tertiary);
+        color: var(--text-muted);
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        transition: all 0.2s ease;
+      }
+
+      .vod-modal-close:hover {
+        background: var(--primary);
+        color: white;
+        transform: scale(1.05);
+      }
+
+      .vod-modal-body {
+        flex: 1;
+        padding: 0;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--primary) var(--bg-tertiary);
+      }
+
+      .vod-modal-body::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .vod-modal-body::-webkit-scrollbar-track {
+        background: var(--bg-tertiary);
+        border-radius: 3px;
+      }
+
+      .vod-modal-body::-webkit-scrollbar-thumb {
+        background: var(--primary);
+        border-radius: 3px;
+        transition: background 0.2s ease;
+      }
+
+      .vod-modal-body::-webkit-scrollbar-thumb:hover {
+        background: var(--primary-dark);
+      }
+
+      .vod-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 16px;
+      }
+
+      .vod-item {
+        background: var(--bg-primary);
+        border: 1px solid var(--border-light);
+        border-radius: 12px;
+        padding: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+      }
+
+      .vod-item:hover {
+        border-color: var(--primary);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        transform: translateY(-1px);
+        background: var(--bg-secondary);
+      }
+
+      .vod-thumbnail {
+        width: 120px;
+        height: 68px;
+        background: var(--bg-tertiary);
+        border-radius: 8px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        flex-shrink: 0;
+      }
+
+      .vod-thumbnail img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.3s ease;
+      }
+
+      .vod-item:hover .vod-thumbnail img {
+        transform: scale(1.05);
+      }
+
+      .vod-duration {
+        background: var(--bg-tertiary);
+        padding: 2px 6px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        border: 1px solid var(--border-light);
+      }
+
+      .vod-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .vod-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        line-height: 1.3;
+        transition: color 0.2s ease;
+        margin: 0;
+      }
+
+      .vod-item:hover .vod-title {
+        color: var(--primary);
+      }
+
+      .vod-meta {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 11px;
+        margin-top: auto;
+      }
+
+      .vod-views {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background: var(--bg-tertiary);
+        padding: 2px 6px;
+        border-radius: 12px;
+        font-weight: 500;
+      }
+
+      .vod-date {
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+
+      .vod-loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: var(--spacing-xl);
+        color: var(--text-muted);
+        font-size: 14px;
+        gap: var(--spacing-md);
+      }
+
+      .vod-loading .spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid var(--border-light);
+        border-top: 3px solid var(--primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      .vod-error {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: var(--spacing-xl);
+        color: #ef4444;
+        font-size: 14px;
+        text-align: center;
+        gap: var(--spacing-sm);
+        background: rgba(239, 68, 68, 0.05);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        border-radius: var(--radius-md);
+        margin: var(--spacing-md);
+      }
+
+      .vod-error svg {
+        width: 48px;
+        height: 48px;
+        opacity: 0.7;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
       }
 
       .toggle-switch {
@@ -1118,7 +1567,7 @@
               </svg>
             </div>
             <h3 data-i18n="noStreams">No streams</h3>
-            <p data-i18n="noStreamsDescription">No tracked streamers are currently live<br>Click the settings tab to add streamers</p>
+            <p data-i18n="noStreamsDescription">No tracked streamers are currently live</p>
           </div>
 
           <div class="error-state hidden" id="error">
@@ -1186,6 +1635,34 @@
                 <span data-i18n="deselectAll">Deselect All</span>
               </button>
             </div>
+          </div>
+          
+          <div class="loading-state" id="channelsLoading">
+            <div class="spinner"></div>
+            <h3 data-i18n="loading">Loading...</h3>
+          </div>
+
+          <div class="empty-state hidden" id="channelsEmpty">
+            <div class="icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect>
+                <polyline points="17 2 12 7 7 2"></polyline>
+              </svg>
+            </div>
+            <h3 data-i18n="noChannels">No channels</h3>
+            <p data-i18n="noChannelsDescription">No tracked channels found</p>
+          </div>
+
+          <div class="error-state hidden" id="channelsError">
+            <div class="icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+            </div>
+            <h3 data-i18n="loadFailed">Load failed</h3>
+            <p id="channelsErrorMessage" data-i18n="unableToLoadChannels">Unable to load channels data</p>
           </div>
           
           <div class="channels-grid" id="channelsList">

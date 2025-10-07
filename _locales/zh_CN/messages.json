@@ -163,6 +163,10 @@
     "message": "尚未添加任何频道<br>请前往设置页面添加频道",
     "description": "No channels description"
   },
+  "unableToLoadChannels": {
+    "message": "无法加载频道数据",
+    "description": "Unable to load channels data message"
+  },
   "loadChannelsFailed": {
     "message": "加载频道失败",
     "description": "Load channels failed message"
@@ -477,6 +481,19 @@
     "description": "Hint after authorization to enable auto follow in settings"
   }
   ,
+  "autoFollowPromptTitle": {
+    "message": "启用自动追踪？",
+    "description": "Prompt title for enabling auto follow"
+  },
+  "autoFollowPromptMessage": {
+    "message": "启用后会自动同步你<br> Twitch 账号追随的主播",
+    "description": "Prompt message for enabling auto follow"
+  },
+  "enableAction": {
+    "message": "启用",
+    "description": "Enable action label"
+  }
+  ,
   "chatTranslationSettings": {
     "message": "聊天室翻译设置",
     "description": "Chat translation settings section title"
@@ -542,5 +559,80 @@
   "useKDisplay": {
     "message": "使用 K 格式显示观众人数",
     "description": "Use K format for viewer count checkbox"
+  },
+  "vodsShort": {
+    "message": "直播记录",
+    "description": "VODs 在简中本地化显示"
+  },
+  "viewVods": {
+    "message": "查看直播记录",
+    "description": "VOD 按钮的提示/标题"
+  },
+  "loadingVods": {
+    "message": "正在载入直播记录...",
+    "description": "VOD 窗口的加载中文案"
+  },
+  "errorLoadingVods": {
+    "message": "载入直播记录出错：$1",
+    "description": "载入 VODs 失败时的错误信息",
+    "placeholders": {
+      "error": { "content": "$1", "example": "未知错误" }
+    }
+  },
+  "noVodsFoundForChannel": {
+    "message": "此频道没有直播记录",
+    "description": "VOD 列表为空时的信息"
+  },
+  "todayLabel": {
+    "message": "今天",
+    "description": "相对日期：今天"
+  },
+  "yesterdayLabel": {
+    "message": "昨天",
+    "description": "相对日期：昨天"
+  },
+  "daysAgo": {
+    "message": "$1 天前",
+    "description": "相对日期：N 天前",
+    "placeholders": {
+      "days": { "content": "$1", "example": "3" }
+    }
+  }
+  ,
+  "goToChannel": {
+    "message": "频道",
+    "description": "前往频道按钮"
+  }
+  ,
+  "followAgeHoursMinutes": {
+    "message": "已关注 $1 小时 $2 分钟",
+    "description": "少于一天时的关注时长显示",
+    "placeholders": {
+      "hours": { "content": "$1", "example": "3" },
+      "minutes": { "content": "$2", "example": "15" }
+    }
+  },
+  "followingFor": {
+    "message": "已关注",
+    "description": "关注时长前缀（后备）"
+  }
+  ,
+  "loadingMoreVods": {
+    "message": "载入更多...",
+    "description": "载入更多 VOD 状态"
+  },
+  "noMoreVods": {
+    "message": "到底了",
+    "description": "没有更多 VOD"
+  }
+  ,
+  "favoriteShort": {
+    "message": "我的最爱",
+    "description": "收藏短字"
+  }
+  ,
+  "subscriberOnly": {
+    "message": "订阅",
+    "description": "订阅者限定视频徽章"
   }
 }

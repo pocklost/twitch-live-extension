@@ -62,11 +62,13 @@ const translatorState = {
   provider: 'microsoft',
   messageStore: new Map(),
   cache: new Map(),
+  inflight: new Map(),
   watcher: null,
   originalTexts: new Map(),
   translatedElements: new Map(),
   maxCacheSize: 100,
-  maxTranslatedElements: 50
+  maxTranslatedElements: 50,
+  cacheTTL: 600000
 };
 
  
@@ -169,18 +171,49 @@ function buildTranslatorInterface() {
     `<option value="${lang.code}">${lang.name}</option>`
   ).join('');
 
-  hiddenContainer.innerHTML = `
-    <input type="checkbox" id="chat-translation-toggle" />
-    <select id="translationProvider">
-      <option value="microsoft" selected>Microsoft Translator</option>
-      <option value="google">Google Translate</option>
-    </select>
-    <select id="chat-language-selector">
-      ${languageOptions}
-    </select>
-    <input type="text" id="customPrefix" placeholder="[譯]" maxlength="20" />
-    <div id="chat-translator-status"></div>
-  `;
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.id = 'chat-translation-toggle';
+  
+  const providerSelect = document.createElement('select');
+  providerSelect.id = 'translationProvider';
+  
+  const microsoftOption = document.createElement('option');
+  microsoftOption.value = 'microsoft';
+  microsoftOption.selected = true;
+  microsoftOption.textContent = 'Microsoft Translator';
+  
+  const googleOption = document.createElement('option');
+  googleOption.value = 'google';
+  googleOption.textContent = 'Google Translate';
+  
+  providerSelect.appendChild(microsoftOption);
+  providerSelect.appendChild(googleOption);
+  
+  const languageSelect = document.createElement('select');
+  languageSelect.id = 'chat-language-selector';
+  
+  supportedLanguages.forEach(lang => {
+    const option = document.createElement('option');
+    option.value = lang.code;
+    option.textContent = lang.name;
+    languageSelect.appendChild(option);
+  });
+  
+  const customPrefixInput = document.createElement('input');
+  customPrefixInput.type = 'text';
+  customPrefixInput.id = 'customPrefix';
+  customPrefixInput.placeholder = '[譯]';
+  customPrefixInput.maxLength = 20;
+  
+  const statusDiv = document.createElement('div');
+  statusDiv.id = 'chat-translator-status';
+  
+  hiddenContainer.appendChild(checkbox);
+  hiddenContainer.appendChild(providerSelect);
+  hiddenContainer.appendChild(languageSelect);
+  hiddenContainer.appendChild(customPrefixInput);
+  hiddenContainer.appendChild(statusDiv);
 
   document.body.appendChild(hiddenContainer);
   return hiddenContainer;
@@ -248,10 +281,19 @@ const translationService = {
   async translateText(text, targetLang, provider = 'microsoft') {
     const cacheKey = `${text}_${targetLang}_${provider}`;
     if (translatorState.cache.has(cacheKey)) {
-      return translatorState.cache.get(cacheKey);
+      const entry = translatorState.cache.get(cacheKey);
+      if (entry && Date.now() - entry.ts <= translatorState.cacheTTL) {
+        return entry.v;
+      } else {
+        translatorState.cache.delete(cacheKey);
+      }
+    }
+    if (translatorState.inflight.has(cacheKey)) {
+      return translatorState.inflight.get(cacheKey);
     }
 
-    try {
+    const p = (async () => {
+      try {
       let result;
       
       if (textUtils.hasEmoji(text)) {
@@ -264,24 +306,22 @@ const translationService = {
         const firstKey = translatorState.cache.keys().next().value;
         translatorState.cache.delete(firstKey);
       }
-      
-      translatorState.cache.set(cacheKey, result);
+      translatorState.cache.set(cacheKey, { v: result, ts: Date.now() });
       return result;
     } catch (error) {
-      console.warn('Translation failed:', error);
-      
       if (error.message.includes('Network error') || error.message.includes('fetch')) {
-        console.warn('Network error, returning original text');
         return text;
       }
-      
       if (error.message.includes('timeout')) {
-        console.warn('Translation timeout, returning original text');
         return text;
       }
-      
       return text;
+    } finally {
+      translatorState.inflight.delete(cacheKey);
     }
+    })();
+    translatorState.inflight.set(cacheKey, p);
+    return p;
   },
 
   async translateSimple(text, targetLang, provider = 'microsoft') {
@@ -291,11 +331,13 @@ const translationService = {
       return await this.translateChunk(chunks[0], targetLang, provider);
     }
     
-    const translations = await Promise.all(
-      chunks.map(chunk => this.translateChunk(chunk, targetLang, provider))
-    );
-    
-    return translations.join('');
+    if (provider === 'microsoft') {
+      const arr = await this.translateBatchMicrosoft(chunks, targetLang);
+      return arr.join('');
+    } else {
+      const arr = await this.translateBatchGoogle(chunks, targetLang);
+      return arr.join('');
+    }
   },
 
   async translateWithEmojis(text, targetLang, provider = 'microsoft') {
@@ -320,6 +362,55 @@ const translationService = {
     } else {
       return await this.translateChunkGoogle(chunk, targetLang);
     }
+  },
+
+  async translateBatchGoogle(chunks, targetLang) {
+    const sep = '\uE000';
+    const joined = chunks.join(sep);
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(joined)}`;
+    try {
+      const response = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(10000) });
+      if (!response.ok) {
+        throw new Error(`Translation API error: ${response.status} ${response.statusText}`);
+      }
+      const data = await response.json();
+      if (!data || !data[0] || !Array.isArray(data[0])) {
+        throw new Error('Invalid translation response format');
+      }
+      const full = data[0].map(item => item[0]).join('');
+      const parts = full.split(sep);
+      if (parts.length === chunks.length) {
+        return parts;
+      }
+      const fallback = await Promise.all(chunks.map(c => this.translateChunkGoogle(c, targetLang)));
+      return fallback;
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error('Translation request timeout');
+      }
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error('Network error: Unable to connect to translation service');
+      }
+      throw error;
+    }
+  },
+
+  async translateBatchMicrosoft(chunks, targetLang) {
+    const [token] = await this.msAuth();
+    const params = { to: targetLang, 'api-version': '3.0' };
+    const queryString = new URLSearchParams(params).toString();
+    const url = `https://api-edge.cognitive.microsofttranslator.com/translate?${queryString}`;
+    const body = chunks.map(t => ({ Text: t }));
+    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(body), signal: AbortSignal.timeout(10000) });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Microsoft Translation API error: ${response.status} ${response.statusText}: ${errorText}`);
+    }
+    const data = await response.json();
+    if (!data || !Array.isArray(data)) {
+      throw new Error('Invalid Microsoft translation response format');
+    }
+    return data.map(item => (item.translations || []).map(x => x.text).join(' '));
   },
 
   async translateChunkGoogle(chunk, targetLang) {
@@ -360,11 +451,8 @@ const translationService = {
   async translateChunkMicrosoft(chunk, targetLang) {
     try {
       const [token] = await this.msAuth();
-      
       const detectedLang = await this.detectLanguageMicrosoft(chunk, token);
-      
       if (detectedLang && this.isSameLanguageCode(detectedLang, targetLang)) {
-        console.log(`Language detected as ${detectedLang}, same as target ${targetLang}, skipping translation`);
         return chunk;
       }
       
@@ -867,6 +955,7 @@ const messageProcessor = {
     });
     
     translatorState.cache.clear();
+    translatorState.inflight.clear();
     translatorState.originalTexts.clear();
     translatorState.translatedElements.clear();
     
@@ -1241,6 +1330,15 @@ setInterval(() => {
 }, 5000);
 
 setInterval(() => {
+  const now = Date.now();
+  const expired = [];
+  translatorState.cache.forEach((entry, key) => {
+    if (!entry || now - (entry.ts || 0) > translatorState.cacheTTL) {
+      expired.push(key);
+    }
+  });
+  expired.forEach(k => translatorState.cache.delete(k));
+  
   const tooltip = document.getElementById('translation-tooltip');
   if (tooltip) {
     const translatedElements = document.querySelectorAll('.translated-message');

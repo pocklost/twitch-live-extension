@@ -98,16 +98,27 @@ function parseChannels(input) {
 function renderChips(channels) {
   const chips = document.getElementById('chips');
   if (!chips) return;
-  chips.innerHTML = '';
+  while (chips.firstChild) {
+    chips.removeChild(chips.firstChild);
+  }
   (channels || []).forEach((c) => {
     const tag = document.createElement('div');
     tag.className = 'tag';
-    tag.innerHTML = `${c} <button class="tag-remove" data-channel="${c}">×</button>`;
+    const textNode = document.createTextNode(c + ' ');
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'tag-remove';
+    removeBtn.setAttribute('data-channel', c);
+    removeBtn.textContent = '×';
+    tag.appendChild(textNode);
+    tag.appendChild(removeBtn);
     chips.appendChild(tag);
   });
   chips.querySelectorAll('.tag-remove').forEach((el) => {
     el.addEventListener('click', () => {
       const toRemove = el.getAttribute('data-channel');
+      const confirmMessage = chrome.i18n.getMessage('confirmDeleteChannel', [toRemove]);
+      showConfirmDialog(confirmMessage, () => {
+        if (el.disabled) return;
       el.disabled = true;
       chrome.runtime.sendMessage({ type: 'streams:remove', username: toRemove }, (response) => {
         if (chrome.runtime.lastError) {
@@ -124,6 +135,7 @@ function renderChips(channels) {
           el.disabled = false;
         }
       });
+      }, null, chrome.i18n.getMessage('confirmDelete'));
     });
   });
 }
@@ -386,7 +398,6 @@ function saveSettings() {
     useKDisplay: useKDisplayEl ? useKDisplayEl.checked : false
   };
   
-  // 更新全域變數
   viewerCountSettings.useKDisplay = settings.useKDisplay;
   chatTranslationSettings.enabled = settings.translationEnabled;
   chatTranslationSettings.provider = settings.translationProvider;
@@ -437,6 +448,11 @@ function saveSettings() {
           } else if (fetchResponse?.ok) {
             console.log('Auto-follow triggered successfully after settings save');
             loadChannels();
+            
+            const currentTab = document.querySelector('.tab-btn.active');
+            if (currentTab && currentTab.id === 'channelsTab') {
+              renderChannelsList();
+            }
           } else {
             console.log('Auto-follow failed after settings save:', fetchResponse?.error);
           }
@@ -444,7 +460,12 @@ function saveSettings() {
       } else {
         chrome.runtime.sendMessage({ type: 'streams:list' }, async (res2) => {
           if (!chrome.runtime.lastError && res2?.payload) {
-            await renderStreamList(res2.payload, settings);
+            const settingsRes = await new Promise((resolve) => {
+              chrome.runtime.sendMessage({ type: 'settings:get' }, (res) => {
+                resolve(res);
+              });
+            });
+            await renderStreamList(res2.payload, settingsRes?.settings || {});
           }
         });
       }
@@ -539,6 +560,15 @@ async function renderStreamList(streams, settings) {
   const statusBar = document.getElementById('status');
   const errorMessageEl = document.getElementById('errorMessage');
 
+  if (!settings || Object.keys(settings).length === 0) {
+    const settingsRes = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: 'settings:get' }, (res) => {
+        resolve(res);
+      });
+    });
+    settings = settingsRes?.settings || {};
+  }
+
   loadingState.classList.add('hidden');
   errorState.classList.add('hidden');
   errorMessageEl.textContent = '';
@@ -556,6 +586,26 @@ async function renderStreamList(streams, settings) {
       settingsStatus.textContent = noStreamsText;
       settingsStatus.className = 'status success';
     }
+    return;
+  }
+
+  const hideOffline = settings?.hideOffline !== false;
+  if (liveStreams.length === 0) {
+    emptyState.classList.remove('hidden');
+    const noStreamsText = chrome.i18n.getMessage('noStreams');
+    statusBar.textContent = noStreamsText;
+    
+    const settingsStatus = document.getElementById('settingsStatus');
+    if (settingsStatus) {
+      settingsStatus.textContent = noStreamsText;
+      settingsStatus.className = 'status success';
+    }
+    
+    if (offlineStreams.length > 0 && !hideOffline) {
+      const existingOfflineSection = streamList.querySelector('.offline-section');
+      updateOfflineSection(streamList, existingOfflineSection, offlineStreams, settings);
+    }
+    setupStreamTitleTooltips();
     return;
   }
 
@@ -607,13 +657,46 @@ async function renderStreamList(streams, settings) {
   
 
   const sortedLiveStreams = liveStreams.sort((a, b) => (b.viewers || 0) - (a.viewers || 0));
-  
   const sortedOfflineStreams = offlineStreams.sort((a, b) => (a.username || '').localeCompare(b.username || ''));
 
-  await updateStreamList(streamList, sortedLiveStreams, sortedOfflineStreams, settings);
+  await new Promise((resolve) => {
+    chrome.storage.local.get(['tsn_favorites'], async (obj) => {
+      const favMap = obj?.tsn_favorites || {};
+      const isFav = (login) => !!favMap[String(login || '').toLowerCase()];
+      const favLive = sortedLiveStreams.filter(s => isFav(s.username || s.channel?.display_name || ''));
+      const otherLive = sortedLiveStreams.filter(s => !isFav(s.username || s.channel?.display_name || ''));
 
-  
-  setupStreamTitleTooltips();
+      const allLiveStreams = [...favLive, ...otherLive];
+      const existingItems = Array.from(streamList.querySelectorAll('li:not(.fav-separator)'));
+      
+      await updateLiveStreamItems(streamList, existingItems, allLiveStreams, settings);
+      
+      if (favLive.length > 0 && otherLive.length > 0) {
+        const existingSep = streamList.querySelector('.fav-separator');
+        if (!existingSep) {
+        const sep = document.createElement('li');
+        sep.className = 'fav-separator';
+        sep.style.cssText = 'height:8px';
+          const firstOtherItem = streamList.querySelector(`[data-username="${otherLive[0]?.username}"]`);
+          if (firstOtherItem) {
+            streamList.insertBefore(sep, firstOtherItem);
+          } else {
+        streamList.appendChild(sep);
+      }
+        }
+      } else {
+        const existingSep = streamList.querySelector('.fav-separator');
+        if (existingSep) {
+          existingSep.remove();
+        }
+      }
+
+      const existingOfflineSection = streamList.querySelector('.offline-section');
+      updateOfflineSection(streamList, existingOfflineSection, sortedOfflineStreams, settings);
+      setupStreamTitleTooltips();
+      resolve();
+    });
+  });
 }
 
 function isTextOverflowing(element) {
@@ -740,6 +823,10 @@ function setupStreamTitleTooltips() {
 }
 
 async function updateStreamList(streamList, liveStreams, offlineStreams, settings) {
+  if (!streamList) {
+    return;
+  }
+  
   const existingItems = Array.from(streamList.children);
   const existingLiveItems = existingItems.filter(item => !item.classList.contains('offline-section'));
   const existingOfflineSection = existingItems.find(item => item.classList.contains('offline-section'));
@@ -750,23 +837,33 @@ async function updateStreamList(streamList, liveStreams, offlineStreams, setting
 }
 
 async function updateLiveStreamItems(streamList, existingItems, liveStreams, settings) {
+  if (!liveStreams || !Array.isArray(liveStreams)) {
+    return;
+  }
+  
   const itemMap = new Map();
   existingItems.forEach(item => {
-    const username = item.querySelector('.streamer-name')?.textContent;
+    const username = item.getAttribute('data-username');
     if (username) {
       itemMap.set(username, item);
     }
   });
   
+  const currentUsernames = new Set();
+  
   for (const [index, stream] of liveStreams.entries()) {
-    const username = stream.channel.display_name;
+    const username = stream.username || stream.channel?.display_name;
+    currentUsernames.add(username);
     let item = itemMap.get(username);
     
     if (item) {
       updateStreamItemContent(item, stream, settings);
     } else {
       item = await createStreamItem(stream, settings);
-      const insertBefore = existingItems[index] || null;
+      item.setAttribute('data-username', username);
+      
+      const insertIndex = Math.min(index, streamList.children.length);
+      const insertBefore = streamList.children[insertIndex];
       if (insertBefore) {
         streamList.insertBefore(item, insertBefore);
       } else {
@@ -775,9 +872,8 @@ async function updateLiveStreamItems(streamList, existingItems, liveStreams, set
     }
   }
   
-  const currentUsernames = new Set(liveStreams.map(s => s.channel.display_name));
   existingItems.forEach(item => {
-    const username = item.querySelector('.streamer-name')?.textContent;
+    const username = item.getAttribute('data-username');
     if (username && !currentUsernames.has(username)) {
       item.remove();
     }
@@ -787,8 +883,21 @@ async function updateLiveStreamItems(streamList, existingItems, liveStreams, set
 function updateStreamItemContent(item, stream, settings) {
   const img = item.querySelector('.stream-thumbnail img');
   if (img) {
-    const thumbnailUrl = getPreviewUrl(stream.username, 640, 360) + `?t=${Date.now()}`;
-    img.src = thumbnailUrl;
+    const newUrl = getPreviewUrl(stream.username, 640, 360) + `?t=${Date.now()}`;
+    if (img.dataset.pendingSrc === newUrl || img.src === newUrl) {
+    } else {
+      img.dataset.pendingSrc = newUrl;
+      const preloader = new Image();
+      preloader.onload = () => {
+        if (img.dataset.pendingSrc === newUrl) {
+          img.src = newUrl;
+          img.style.opacity = '0.999';
+          requestAnimationFrame(() => { img.style.opacity = ''; });
+          delete img.dataset.pendingSrc;
+        }
+      };
+      preloader.src = newUrl;
+    }
   }
   
   const title = item.querySelector('.stream-title');
@@ -813,11 +922,11 @@ function updateStreamItemContent(item, stream, settings) {
     viewerCount.textContent = formatViewerCount(stream.viewers || 0);
   }
   
-  const timeSpan = item.querySelector('.live-time span[aria-hidden="true"]');
-  if (timeSpan && stream.created_at) {
+  const timeBadge = item.querySelector('.live-time-badge');
+  if (timeBadge && stream.created_at) {
     const newTime = formatStreamTime(stream.created_at);
-    if (timeSpan.textContent !== newTime) {
-      timeSpan.textContent = newTime;
+    if (timeBadge.textContent !== newTime) {
+      timeBadge.textContent = newTime;
       item.dataset.startTime = stream.created_at;
     }
   }
@@ -834,6 +943,7 @@ function updateStreamItemContent(item, stream, settings) {
 async function createStreamItem(stream, settings) {
     const item = document.createElement('li');
     item.className = 'stream-item fade-in';
+    item.setAttribute('data-username', stream.username || stream.channel?.display_name);
   if (stream.created_at) {
     item.dataset.startTime = stream.created_at;
   }
@@ -847,10 +957,12 @@ async function createStreamItem(stream, settings) {
   if (!settings?.autoFollow) {
     removeBtn = document.createElement('button');
     removeBtn.className = 'remove-btn';
-    removeBtn.innerHTML = '×';
+    removeBtn.textContent = '×';
     removeBtn.title = chrome.i18n.getMessage('remove');
     removeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      const confirmMessage = chrome.i18n.getMessage('confirmDeleteChannel', [stream.username]);
+      showConfirmDialog(confirmMessage, () => {
       if (removeBtn.disabled) return;
       removeBtn.disabled = true;
       chrome.runtime.sendMessage({ type: 'streams:remove', username: stream.username }, (response) => {
@@ -867,13 +979,15 @@ async function createStreamItem(stream, settings) {
           removeBtn.disabled = false;
         }
       });
+      }, null, chrome.i18n.getMessage('confirmDelete'));
     });
   }
     
   const thumbnailUrl = getPreviewUrl(stream.username, 640, 360) + `?t=${Date.now()}`;
       const thumbnailHtml = settings.hidePreviews ? '' : `
-        <div class="stream-thumbnail">
-          <img src="${thumbnailUrl}" alt="${stream.username} stream" />
+        <div class=\"stream-thumbnail\" style=\"position: relative;\">
+          <img src=\"${thumbnailUrl}\" alt=\"${stream.username} stream\" />
+          <span class=\"live-time-badge\">${formatStreamTime(stream.created_at)}</span>
         </div>
       `;
 
@@ -885,15 +999,14 @@ async function createStreamItem(stream, settings) {
         <div class="stream-content">
           ${thumbnailHtml}
           <div class="stream-info">
-            <div class="stream-title" data-full="${(originalTitle || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}" data-translated="${(displayTitle || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}">${displayTitle}</div>
-            <div class="stream-meta">
-          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px; min-width: 0;">
-              ${stream.channel.profile_image_url ? `<img src="${stream.channel.profile_image_url}" alt="${stream.channel.display_name}" class="streamer-avatar" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0;">` : ''}
-              <span class="streamer-name">${stream.channel.display_name}</span>
-              <span class="game-name">${stream.game}</span>
+            <div class=\"stream-header\" style=\"display: flex; align-items: center; gap: 6px; margin-bottom: 4px; min-width: 0;\">
+              ${stream.channel.profile_image_url ? `<img src=\"${stream.channel.profile_image_url}\" alt=\"${stream.channel.display_name}\" class=\"streamer-avatar\" style=\"width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0;\">` : ''}
+              <span class=\"streamer-name\">${stream.channel.display_name}</span>
           </div>
+            <div class="stream-title" data-full="${(originalTitle || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}" data-translated="${(displayTitle || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}">${displayTitle}</div>
+            
           <div class="stream-stats">
-            <div class="viewer-section">
+              <div class="viewer-section" style="gap:8px;">
               <div class="viewer-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
                   <path fill-rule="evenodd" d="M5 7a5 5 0 1 1 6.192 4.857A2 2 0 0 0 13 13h1a3 3 0 0 1 3 3v2h-2v-2a1 1 0 0 0-1-1h-1a3.99 3.99 0 0 1-3-1.354A3.99 3.99 0 0 1 7 15H6a1 1 0 0 0-1 1v2H3v-2a3 3 0 0 1 3-3h1a2 2 0 0 0 1.808-1.143A5.002 5.002 0 0 1 5 7zm5 3a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" clip-rule="evenodd"></path>
@@ -901,20 +1014,20 @@ async function createStreamItem(stream, settings) {
               </div>
               <strong class="viewer-count">${formatViewerCount(stream.viewers || 0)}</strong>
               <p class="viewer-label">${chrome.i18n.getMessage('viewerCount')}: ${formatViewerCount(stream.viewers || 0)}</p>
+                <span class="game-name ${settings.hidePreviews ? 'game-name-full' : ''}">${stream.game}</span>
             </div>
-            <div class="duration-section">
-              <span class="live-time">
-                <span aria-hidden="true">${formatStreamTime(stream.created_at)}</span>
-                <p class="duration-label">${chrome.i18n.getMessage('liveStreamDuration', [formatStreamTime(stream.created_at)])}</p>
-              </span>
-            </div>
-          </div>
+              <div class="duration-section" style="display:none"></div>
             </div>
           </div>
         </div>
       `;
   
-    item.innerHTML = streamContentHtml;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(streamContentHtml, 'text/html');
+    const tempDiv = doc.body;
+    while (tempDiv.firstChild) {
+      item.appendChild(tempDiv.firstChild);
+    }
     if (removeBtn) {
       item.appendChild(removeBtn);
     }
@@ -922,16 +1035,20 @@ async function createStreamItem(stream, settings) {
 }
 
 function updateOfflineSection(streamList, existingOfflineSection, offlineStreams, settings) {
-  if (offlineStreams.length > 0 && !settings.hideOffline) {
+  const hideOffline = settings?.hideOffline !== false;
+  
+  if (offlineStreams && offlineStreams.length > 0 && !hideOffline) {
     if (existingOfflineSection) {
-  const offlineList = existingOfflineSection.querySelector('.offline-list');
+      const offlineGrid = existingOfflineSection.querySelector('.offline-grid');
       const title = existingOfflineSection.querySelector('.offline-title');
       
       if (title) {
         title.textContent = chrome.i18n.getMessage('offlineStreamers', [offlineStreams.length]);
       }
       
-  updateOfflineStreamItems(offlineList, offlineStreams, settings);
+      if (offlineGrid) {
+        updateOfflineStreamItems(offlineGrid, offlineStreams, settings);
+      }
     } else {
   const offlineSection = createOfflineSection(offlineStreams, settings);
       streamList.appendChild(offlineSection);
@@ -941,12 +1058,16 @@ function updateOfflineSection(streamList, existingOfflineSection, offlineStreams
   }
 }
 
-function updateOfflineStreamItems(offlineList, offlineStreams, settings) {
-  const existingItems = Array.from(offlineList.children);
+function updateOfflineStreamItems(offlineGrid, offlineStreams, settings) {
+  if (!offlineGrid || !offlineStreams || !Array.isArray(offlineStreams)) {
+    return;
+  }
+  
+  const existingItems = Array.from(offlineGrid.children);
   const itemMap = new Map();
   
   existingItems.forEach(item => {
-    const username = item.querySelector('.stream-title')?.textContent?.replace(' (Offline)', '');
+    const username = item.getAttribute('data-username');
     if (username) {
       itemMap.set(username, item);
     }
@@ -958,13 +1079,13 @@ function updateOfflineStreamItems(offlineList, offlineStreams, settings) {
     
     if (!item) {
       item = createOfflineStreamItem(stream, settings);
-      offlineList.insertBefore(item, existingItems[index] || null);
+      offlineGrid.insertBefore(item, existingItems[index] || null);
     }
   });
   
   const currentUsernames = new Set(offlineStreams.map(s => s.username));
   existingItems.forEach(item => {
-    const username = item.querySelector('.stream-title')?.textContent?.replace(' (Offline)', '');
+    const username = item.getAttribute('data-username');
     if (username && !currentUsernames.has(username)) {
       item.remove();
     }
@@ -974,31 +1095,31 @@ function updateOfflineStreamItems(offlineList, offlineStreams, settings) {
 function createOfflineSection(offlineStreams, settings) {
   const offlineSection = document.createElement('div');
   offlineSection.className = 'offline-section';
-  offlineSection.innerHTML = `
-    <div class="offline-header">
-      <span class="offline-title">${chrome.i18n.getMessage('offlineStreamers', [offlineStreams.length])}</span>
-      <span class="offline-toggle">▼</span>
-    </div>
-    <div class="offline-content collapsed">
-      <br><ul class="offline-list"></ul>
-    </div>
-  `;
+  const offlineHeader = document.createElement('div');
+  offlineHeader.className = 'offline-header';
+  const offlineTitle = document.createElement('span');
+  offlineTitle.className = 'offline-title';
+  offlineTitle.textContent = chrome.i18n.getMessage('offlineStreamers', [offlineStreams.length]);
+  offlineHeader.appendChild(offlineTitle);
   
-  const offlineHeader = offlineSection.querySelector('.offline-header');
-  offlineHeader.addEventListener('click', toggleOfflineSection);
+  const offlineGrid = document.createElement('div');
+  offlineGrid.className = 'offline-grid';
   
-  const offlineList = offlineSection.querySelector('.offline-list');
+  offlineSection.appendChild(offlineHeader);
+  offlineSection.appendChild(offlineGrid);
+  
   offlineStreams.forEach(stream => {
     const item = createOfflineStreamItem(stream, settings);
-    offlineList.appendChild(item);
+    offlineGrid.appendChild(item);
   });
   
   return offlineSection;
 }
 
 function createOfflineStreamItem(stream, settings) {
-  const item = document.createElement('li');
-  item.className = 'stream-item offline-item fade-in';
+  const item = document.createElement('div');
+  item.className = 'offline-card fade-in';
+  item.setAttribute('data-username', stream.username);
   item.addEventListener('click', () => {
     const url = `https://www.twitch.tv/${stream.username}`;
     chrome.tabs.create({ url });
@@ -1008,7 +1129,7 @@ function createOfflineStreamItem(stream, settings) {
   if (!settings?.autoFollow) {
     removeBtn = document.createElement('button');
     removeBtn.className = 'remove-btn';
-    removeBtn.innerHTML = '×';
+    removeBtn.textContent = '×';
     removeBtn.title = chrome.i18n.getMessage('remove');
     removeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1036,13 +1157,53 @@ function createOfflineStreamItem(stream, settings) {
     });
   }
 
-  item.innerHTML = `
-    <div class="stream-content">
-      <div class="stream-info">
-        <div class="stream-title">${stream.username} (${chrome.i18n.getMessage('offline')})</div>
-      </div>
-    </div>
-  `;
+  const cardContent = document.createElement('div');
+  cardContent.className = 'offline-card-content';
+  
+  const avatar = document.createElement('div');
+  avatar.className = 'offline-avatar';
+  const avatarPlaceholder = document.createElement('div');
+  avatarPlaceholder.className = 'offline-avatar-placeholder';
+  
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', '24');
+  svg.setAttribute('height', '24');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '2');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  
+  const path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path1.setAttribute('d', 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2');
+  const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  circle.setAttribute('cx', '12');
+  circle.setAttribute('cy', '7');
+  circle.setAttribute('r', '4');
+  
+  svg.appendChild(path1);
+  svg.appendChild(circle);
+  avatarPlaceholder.appendChild(svg);
+  avatar.appendChild(avatarPlaceholder);
+  
+  const info = document.createElement('div');
+  info.className = 'offline-info';
+  
+  const name = document.createElement('div');
+  name.className = 'offline-name';
+  name.textContent = stream.username;
+  
+  const status = document.createElement('div');
+  status.className = 'offline-status';
+  status.textContent = chrome.i18n.getMessage('offline');
+  
+  info.appendChild(name);
+  info.appendChild(status);
+  
+  cardContent.appendChild(avatar);
+  cardContent.appendChild(info);
+  item.appendChild(cardContent);
   if (removeBtn) {
     item.appendChild(removeBtn);
   }
@@ -1053,7 +1214,10 @@ function showLoading() {
   document.getElementById('loading').classList.remove('hidden');
   document.getElementById('empty').classList.add('hidden');
   document.getElementById('error').classList.add('hidden');
-  document.getElementById('streamList').innerHTML = '';
+  const streamList = document.getElementById('streamList');
+  while (streamList.firstChild) {
+    streamList.removeChild(streamList.firstChild);
+  }
 }
 
 function refresh() {
@@ -1116,10 +1280,63 @@ function filterChannels(searchTerm) {
   });
 }
 
+function showChannelsLoading() {
+  const channelsLoading = document.getElementById('channelsLoading');
+  const channelsEmpty = document.getElementById('channelsEmpty');
+  const channelsError = document.getElementById('channelsError');
+  const channelsList = document.getElementById('channelsList');
+  
+  if (channelsLoading) channelsLoading.classList.remove('hidden');
+  if (channelsEmpty) channelsEmpty.classList.add('hidden');
+  if (channelsError) channelsError.classList.add('hidden');
+  
+  while (channelsList.firstChild) {
+    channelsList.removeChild(channelsList.firstChild);
+  }
+}
+
+function showChannelsEmpty() {
+  const channelsLoading = document.getElementById('channelsLoading');
+  const channelsEmpty = document.getElementById('channelsEmpty');
+  const channelsError = document.getElementById('channelsError');
+  const channelsList = document.getElementById('channelsList');
+  
+  if (channelsLoading) channelsLoading.classList.add('hidden');
+  if (channelsEmpty) channelsEmpty.classList.remove('hidden');
+  if (channelsError) channelsError.classList.add('hidden');
+  
+  while (channelsList.firstChild) {
+    channelsList.removeChild(channelsList.firstChild);
+  }
+}
+
+function showChannelsError(message) {
+  const channelsLoading = document.getElementById('channelsLoading');
+  const channelsEmpty = document.getElementById('channelsEmpty');
+  const channelsError = document.getElementById('channelsError');
+  const channelsErrorMessage = document.getElementById('channelsErrorMessage');
+  const channelsList = document.getElementById('channelsList');
+  
+  if (channelsLoading) channelsLoading.classList.add('hidden');
+  if (channelsEmpty) channelsEmpty.classList.add('hidden');
+  if (channelsError) channelsError.classList.remove('hidden');
+  
+  if (channelsErrorMessage && message) {
+    channelsErrorMessage.textContent = message;
+  }
+  
+  while (channelsList.firstChild) {
+    channelsList.removeChild(channelsList.firstChild);
+  }
+}
+
 function renderChannelsList() {
+  showChannelsLoading();
+  
   chrome.runtime.sendMessage({ type: 'streams:list' }, (response) => {
     if (chrome.runtime.lastError) {
       console.log('Error loading channels for management:', chrome.runtime.lastError.message);
+      showChannelsError(chrome.runtime.lastError.message);
       return;
     }
     
@@ -1128,18 +1345,7 @@ function renderChannelsList() {
     const channelsLastUpdate = document.getElementById('channelsLastUpdate');
     
     if (!response?.payload || response.payload.length === 0) {
-      channelsList.innerHTML = `
-        <div class="empty-state" style="grid-column: 1 / -1;">
-          <div class="icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect>
-              <polyline points="17 2 12 7 7 2"></polyline>
-            </svg>
-          </div>
-          <h3>${chrome.i18n.getMessage('noChannels')}</h3>
-          <p>${chrome.i18n.getMessage('noChannelsDescription')}</p>
-        </div>
-      `;
+      showChannelsEmpty();
       
       if (channelsStatus) {
         channelsStatus.textContent = chrome.i18n.getMessage('noChannels');
@@ -1196,7 +1402,14 @@ function renderChannelsList() {
         });
 
         const renderWith = (map) => {
-          channelsList.innerHTML = response.payload.map(channel => {
+          chrome.storage.local.get(['tsn_favorites'], (favObj) => {
+            const fav = favObj?.tsn_favorites || {};
+            const isFav = (login) => !!fav[String(login || '').toLowerCase()];
+            
+            const favChannels = response.payload.filter(channel => isFav(channel.username));
+            const otherChannels = response.payload.filter(channel => !isFav(channel.username));
+            
+            const createChannelHTML = (channel) => {
         const isNotificationEnabled = notificationSettings[channel.username] === true;
         const login = channel.username;
         const displayName = channel.displayName || login;
@@ -1208,16 +1421,26 @@ function renderChannelsList() {
         if (followedAtRaw) {
           const followedDate = new Date(followedAtRaw);
           const now = new Date();
+          const diffMs = now - followedDate;
           const msPerDay = 24 * 60 * 60 * 1000;
-          const totalDays = Math.max(0, Math.floor((now - followedDate) / msPerDay));
+          const totalDays = Math.max(0, Math.floor(diffMs / msPerDay));
           const years = Math.floor(totalDays / 365);
           const days = totalDays % 365;
           if (years > 0) {
             followDisplay = days > 0
               ? chrome.i18n.getMessage('followAgeYearsDays', [years, days])
               : chrome.i18n.getMessage('followAgeYearsOnly', [years]);
+          } else if (totalDays > 0) {
+            followDisplay = chrome.i18n.getMessage('followAgeDaysOnly', [totalDays]);
           } else {
-            followDisplay = chrome.i18n.getMessage('followAgeDaysOnly', [days]);
+            const hours = Math.floor(diffMs / (1000 * 60 * 60));
+            const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+            const msg = chrome.i18n.getMessage('followAgeHoursMinutes', [hours, minutes]);
+            if (msg) {
+              followDisplay = msg;
+            } else {
+              followDisplay = `${chrome.i18n.getMessage('followingFor') || 'Following for'} ${hours}${chrome.i18n.getMessage('hours')}${minutes}${chrome.i18n.getMessage('minutes')}`;
+            }
           }
           followTitle = followedDate.toLocaleString(navigator.language);
         }
@@ -1226,19 +1449,25 @@ function renderChannelsList() {
             ? `${displayName} (${login})`
             : login;
 
-          return `
-          <div class="channel-item" data-channel-id="${login}">
-            <div class="channel-header">
-              <a href="https://www.twitch.tv/${login}" target="_blank" class="channel-name" style="display: flex; align-items: center; gap: 8px;">
+              return `
+              <div class="channel-item fade-in" data-channel-id="${login}" style="position: relative;">
+            <div class="channel-header" style="position: relative; padding-right: 24px;">
+              <div class="channel-name" style="display: flex; align-items: center; gap: 8px;">
                 ${uinfo.profile_image_url ? `<img src="${uinfo.profile_image_url}" alt="${displayName}" class="channel-avatar" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid var(--border-light);">` : ''}
                 <span>${nameLine}</span>
-              </a>
+                    <button class="btn-fav" data-channel-id="${login}" style="position:absolute; right:4px; top:50%; transform: translateY(-50%); width:24px; height:24px; padding:0; background:rgba(0,0,0,0.6); border:none; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; opacity:0; visibility:hidden; transition:all 0.2s ease; backdrop-filter:blur(8px);">
+                      <svg class="fav-icon" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:all 0.2s ease;">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"></path>
+                  </svg>
+                </button>
+              </div>
             </div>
             <div class="channel-details">
-              ${description ? `<div class=\"channel-desc\" data-full=\"${description.replace(/\\/g, '\\\\').replace(/\n/g, '&#10;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}\">${description.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` : ''}
+              ${description ? `<div class="channel-desc" data-full="${description.replace(/\\/g, '\\\\').replace(/\n/g, '&#10;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}">${description.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` : ''}
               <span class="follow-age" data-full="${followTitle}">${followDisplay}</span>
             </div>
 			
+            <div class="channel-footer">
             <div class="channel-notification">
               <span class="notification-label">${chrome.i18n.getMessage('enableNotifications')}</span>
               <label class="toggle-switch">
@@ -1247,10 +1476,84 @@ function renderChannelsList() {
                 <span class="toggle-slider"></span>
               </label>
             </div>
+              <hr class="channel-hr"><div class="channel-actions">
+                <button class="btn-go-channel" data-channel-id="${login}" data-channel-name="${displayName}" title="${chrome.i18n.getMessage('goToChannel') || 'Go to channel'}">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 12h13"></path><path d="m11 18 6-6-6-6"></path>
+                  </svg>
+                  ${chrome.i18n.getMessage('goToChannel') || 'Go to channel'}
+                </button>
+                <button class="btn-vod" data-channel-id="${login}" data-channel-name="${displayName}" title="${chrome.i18n.getMessage('viewVods') || 'View VODs'}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                  <line x1="8" y1="21" x2="16" y2="21"></line>
+                  <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+                  ${chrome.i18n.getMessage('vodsShort') || 'VODs'}
+              </button>
+              </div>
+            </div>
           </div>
           `;
-        }).join('');
-        };
+            };
+            
+            let html = '';
+            
+            favChannels.forEach(channel => {
+              html += createChannelHTML(channel);
+            });
+            
+            if (favChannels.length > 0 && otherChannels.length > 0) {
+              html += '<div style="grid-column:1 / -1; height:8px;"></div>';
+            }
+            
+            otherChannels.forEach(channel => {
+              html += createChannelHTML(channel);
+            });
+            
+            const existingItems = Array.from(channelsList.querySelectorAll('.channel-item'));
+            const existingChannelIds = new Set(existingItems.map(item => item.getAttribute('data-channel-id')));
+            const newChannelIds = new Set([...favChannels, ...otherChannels].map(c => c.username));
+            
+            if (existingChannelIds.size === 0 || !Array.from(existingChannelIds).every(id => newChannelIds.has(id))) {
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(html, 'text/html');
+              const tempDiv = doc.body;
+              while (channelsList.firstChild) {
+                channelsList.removeChild(channelsList.firstChild);
+              }
+              while (tempDiv.firstChild) {
+                channelsList.appendChild(tempDiv.firstChild);
+              }
+            }
+            
+            const channelsLoading = document.getElementById('channelsLoading');
+            const channelsEmpty = document.getElementById('channelsEmpty');
+            const channelsError = document.getElementById('channelsError');
+            
+            if (channelsLoading) channelsLoading.classList.add('hidden');
+            if (channelsEmpty) channelsEmpty.classList.add('hidden');
+            if (channelsError) channelsError.classList.add('hidden');
+            
+            const items = Array.from(channelsList.querySelectorAll('.channel-item'));
+            items.forEach(it => {
+              const btn = it.querySelector('.btn-fav');
+              const icon = it.querySelector('.btn-fav .fav-icon');
+              const id = String(it.getAttribute('data-channel-id') || '').toLowerCase();
+              if (btn && icon) {
+                if (fav[id]) { 
+                  btn.style.background = 'rgba(239, 68, 68, 0.9)';
+                  icon.style.fill = '#ffffff';
+                  icon.style.stroke = '#ffffff';
+                } else { 
+                  btn.style.background = 'rgba(0,0,0,0.6)';
+                  icon.style.fill = 'none';
+                  icon.style.stroke = '#ffffff';
+                }
+              }
+            });
+          });
+      };
 
         renderWith(userMap);
 
@@ -1317,6 +1620,80 @@ function renderChannelsList() {
       });
     });
   });
+
+  function reorderFavoritesInChannels() {
+    chrome.storage.local.get(['tsn_favorites'], (obj) => {
+      const fav = obj?.tsn_favorites || {};
+      const list = document.getElementById('channelsList');
+      if (!list) return;
+      const items = Array.from(list.querySelectorAll('.channel-item'));
+      const favItems = items.filter(it => fav[String(it.getAttribute('data-channel-id') || '').toLowerCase()]);
+      const otherItems = items.filter(it => !fav[String(it.getAttribute('data-channel-id') || '').toLowerCase()]);
+      if (favItems.length === 0) return;
+      while (list.firstChild) list.removeChild(list.firstChild);
+      favItems.forEach(it => list.appendChild(it));
+      if (otherItems.length > 0) {
+        const sep = document.createElement('div');
+        sep.style.cssText = 'grid-column:1 / -1; height:8px;';
+        list.appendChild(sep);
+      }
+      otherItems.forEach(it => list.appendChild(it));
+      items.forEach(it => {
+        const btn = it.querySelector('.btn-fav .fav-icon');
+        const id = String(it.getAttribute('data-channel-id') || '').toLowerCase();
+        if (btn) {
+          if (fav[id]) { btn.style.fill = '#ef4444'; btn.style.stroke = '#ef4444'; }
+          else { btn.style.fill = 'none'; btn.style.stroke = '#ffffff'; }
+        }
+      });
+    });
+  }
+
+  const channelsListEl = document.getElementById('channelsList');
+  if (channelsListEl) {
+    channelsListEl.addEventListener('mouseover', (e) => {
+      const btn = e.target.closest && e.target.closest('.btn-fav');
+      if (btn) {
+        const icon = btn.querySelector('.fav-icon');
+        const id = String(btn.getAttribute('data-channel-id') || '').toLowerCase();
+        chrome.storage.local.get(['tsn_favorites'], (obj) => {
+          const fav = obj?.tsn_favorites || {};
+          if (icon) {
+            if (fav[id]) {
+              btn.style.transform = 'translateY(-50%) scale(1.1)';
+              btn.style.background = 'rgba(239, 68, 68, 1)';
+            } else {
+              btn.style.background = 'rgba(239, 68, 68, 0.8)';
+              btn.style.transform = 'translateY(-50%) scale(1.05)';
+              icon.style.stroke = '#ffffff';
+            }
+          }
+        });
+      }
+    });
+    channelsListEl.addEventListener('mouseout', (e) => {
+      const btn = e.target.closest && e.target.closest('.btn-fav');
+      if (btn) {
+        const icon = btn.querySelector('.fav-icon');
+        const id = String(btn.getAttribute('data-channel-id') || '').toLowerCase();
+        chrome.storage.local.get(['tsn_favorites'], (obj) => {
+          const fav = obj?.tsn_favorites || {};
+          if (icon) {
+            if (fav[id]) { 
+              btn.style.background = 'rgba(239, 68, 68, 0.9)';
+              icon.style.fill = '#ffffff';
+              icon.style.stroke = '#ffffff';
+            } else { 
+              btn.style.background = 'rgba(0,0,0,0.6)';
+              icon.style.fill = 'none';
+              icon.style.stroke = '#ffffff';
+            }
+            btn.style.transform = 'translateY(-50%) scale(1)';
+          }
+        });
+      }
+    });
+  }
 
   let unifiedTooltipEl = null;
   const ensureUnifiedTooltip = () => {
@@ -1385,6 +1762,76 @@ function renderChannelsList() {
       unifiedTooltipEl.style.display = 'none';
     }
   });
+  
+      channelsList.addEventListener('mouseover', (e) => {
+        const item = e.target.closest('.channel-item');
+        if (item) {
+          const btn = item.querySelector('.btn-fav');
+          if (btn) { 
+            btn.style.opacity = '1'; 
+            btn.style.visibility = 'visible'; 
+          }
+        }
+      });
+      channelsList.addEventListener('mouseout', (e) => {
+        const from = e.target.closest('.channel-item');
+        const to = e.relatedTarget?.closest?.('.channel-item');
+        if (from && from !== to) {
+          const btn = from.querySelector('.btn-fav');
+          if (btn) { 
+            btn.style.opacity = '0'; 
+            btn.style.visibility = 'hidden'; 
+          }
+        }
+      });
+      channelsList.addEventListener('click', (e) => {
+    if (e.target.closest('.btn-vod')) {
+      e.stopPropagation();
+      const button = e.target.closest('.btn-vod');
+      const channelId = button.getAttribute('data-channel-id');
+      const channelName = button.getAttribute('data-channel-name');
+      showVodModal(channelId, channelName);
+        } else if (e.target.closest('.btn-go-channel')) {
+      e.stopPropagation();
+      const button = e.target.closest('.btn-go-channel');
+      const channelId = button.getAttribute('data-channel-id');
+      const href = `https://www.twitch.tv/${channelId}`;
+        chrome.tabs.create({ url: href });
+        } else if (e.target.closest('.btn-fav')) {
+          e.stopPropagation();
+          const btn = e.target.closest('.btn-fav');
+          const id = String(btn.getAttribute('data-channel-id') || '').toLowerCase();
+          
+          btn.style.transform = 'translateY(-50%) scale(0.95)';
+          
+          setTimeout(() => {
+          chrome.storage.local.get(['tsn_favorites'], (obj) => {
+            const fav = obj?.tsn_favorites || {};
+            fav[id] = fav[id] ? false : true;
+            if (!fav[id]) delete fav[id];
+            chrome.storage.local.set({ tsn_favorites: fav }, () => {
+              const icon = btn.querySelector('.fav-icon');
+              if (icon) {
+                if (fav[id]) { 
+                  btn.style.background = 'rgba(239, 68, 68, 0.9)';
+                  icon.style.fill = '#ffffff';
+                  icon.style.stroke = '#ffffff';
+                } else { 
+                  btn.style.background = 'rgba(0,0,0,0.6)';
+                  icon.style.fill = 'none';
+                  icon.style.stroke = '#ffffff';
+                }
+              }
+              refresh();
+                
+                setTimeout(() => {
+                  btn.style.transform = 'translateY(-50%) scale(1)';
+                }, 100);
+            });
+          });
+          }, 100);
+    }
+  });
 }
 
 document.getElementById('streamsTab').addEventListener('click', () => switchTab('streams'));
@@ -1392,6 +1839,7 @@ document.getElementById('channelsTab').addEventListener('click', () => {
   switchTab('channels');
   renderChannelsList();
 });
+
 document.getElementById('settingsTab').addEventListener('click', () => switchTab('settings'));
 
 document.getElementById('streamsSearch')?.addEventListener('input', (e) => {
@@ -1438,6 +1886,11 @@ document.getElementById('addChannel').addEventListener('click', () => {
       renderChips(response.channels || []);
       showStatus(chrome.i18n.getMessage('addedChannels', [newChannels.length]), 'success');
       saveSettings();
+      
+      const currentTab = document.querySelector('.tab-btn.active');
+      if (currentTab && currentTab.id === 'channelsTab') {
+        renderChannelsList();
+      }
     } else {
       showStatus(chrome.i18n.getMessage('addChannelFailed'), 'error');
     }
@@ -1447,9 +1900,25 @@ document.getElementById('addChannel').addEventListener('click', () => {
         document.getElementById('authorizeBtn').addEventListener('click', () => {
           const btn = document.getElementById('authorizeBtn');
           btn.disabled = true;
-          btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; animation: spin 1s linear infinite;">
-            <path d="M21 12a9 9 0 11-6.219-8.56"></path>
-          </svg>${chrome.i18n.getMessage('authorizing')}`;
+          while (btn.firstChild) {
+            btn.removeChild(btn.firstChild);
+          }
+          const authSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          authSvg.setAttribute('width', '12');
+          authSvg.setAttribute('height', '12');
+          authSvg.setAttribute('viewBox', '0 0 24 24');
+          authSvg.setAttribute('fill', 'none');
+          authSvg.setAttribute('stroke', 'currentColor');
+          authSvg.setAttribute('stroke-width', '2');
+          authSvg.setAttribute('stroke-linecap', 'round');
+          authSvg.setAttribute('stroke-linejoin', 'round');
+          authSvg.style.cssText = 'margin-right: 4px; animation: spin 1s linear infinite;';
+          
+          const authPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          authPath.setAttribute('d', 'M21 12a9 9 0 11-6.219-8.56');
+          authSvg.appendChild(authPath);
+          btn.appendChild(authSvg);
+          btn.appendChild(document.createTextNode(chrome.i18n.getMessage('authorizing')));
           
           chrome.runtime.sendMessage({ type: 'auth:start' }, (response) => {
             btn.disabled = false;
@@ -1463,6 +1932,7 @@ document.getElementById('addChannel').addEventListener('click', () => {
             if (response?.ok) {
               showStatus(`✅ ${chrome.i18n.getMessage('authorizationSuccess')}`, 'success');
               updateAuthStatus(true);
+              promptEnableAutoFollow();
             } else {
               showStatus(`❌ ${chrome.i18n.getMessage('authorizationFailed', [response?.error || chrome.i18n.getMessage('unknown')])}`, 'error');
             }
@@ -1472,9 +1942,25 @@ document.getElementById('addChannel').addEventListener('click', () => {
         document.getElementById('headerAuthBtn').addEventListener('click', () => {
           const btn = document.getElementById('headerAuthBtn');
           btn.disabled = true;
-          btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; animation: spin 1s linear infinite;">
-            <path d="M21 12a9 9 0 11-6.219-8.56"></path>
-          </svg>${chrome.i18n.getMessage('authorizing')}`;
+          while (btn.firstChild) {
+            btn.removeChild(btn.firstChild);
+          }
+          const authSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          authSvg.setAttribute('width', '12');
+          authSvg.setAttribute('height', '12');
+          authSvg.setAttribute('viewBox', '0 0 24 24');
+          authSvg.setAttribute('fill', 'none');
+          authSvg.setAttribute('stroke', 'currentColor');
+          authSvg.setAttribute('stroke-width', '2');
+          authSvg.setAttribute('stroke-linecap', 'round');
+          authSvg.setAttribute('stroke-linejoin', 'round');
+          authSvg.style.cssText = 'margin-right: 4px; animation: spin 1s linear infinite;';
+          
+          const authPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          authPath.setAttribute('d', 'M21 12a9 9 0 11-6.219-8.56');
+          authSvg.appendChild(authPath);
+          btn.appendChild(authSvg);
+          btn.appendChild(document.createTextNode(chrome.i18n.getMessage('authorizing')));
           
           chrome.runtime.sendMessage({ type: 'auth:start' }, (response) => {
             btn.disabled = false;
@@ -1489,6 +1975,7 @@ document.getElementById('addChannel').addEventListener('click', () => {
               showStatus(`✅ ${chrome.i18n.getMessage('authorizationSuccess')}`, 'success');
               updateAuthStatus(true);
               loadUserProfile();
+              promptEnableAutoFollow();
             } else {
               showStatus(`❌ ${chrome.i18n.getMessage('authorizationFailed', [response?.error || chrome.i18n.getMessage('unknown')])}`, 'error');
             }
@@ -1498,9 +1985,25 @@ document.getElementById('addChannel').addEventListener('click', () => {
         document.getElementById('headerAuthBtn2').addEventListener('click', () => {
           const btn = document.getElementById('headerAuthBtn2');
           btn.disabled = true;
-          btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; animation: spin 1s linear infinite;">
-            <path d="M21 12a9 9 0 11-6.219-8.56"></path>
-          </svg>${chrome.i18n.getMessage('authorizing')}`;
+          while (btn.firstChild) {
+            btn.removeChild(btn.firstChild);
+          }
+          const authSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          authSvg.setAttribute('width', '12');
+          authSvg.setAttribute('height', '12');
+          authSvg.setAttribute('viewBox', '0 0 24 24');
+          authSvg.setAttribute('fill', 'none');
+          authSvg.setAttribute('stroke', 'currentColor');
+          authSvg.setAttribute('stroke-width', '2');
+          authSvg.setAttribute('stroke-linecap', 'round');
+          authSvg.setAttribute('stroke-linejoin', 'round');
+          authSvg.style.cssText = 'margin-right: 4px; animation: spin 1s linear infinite;';
+          
+          const authPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          authPath.setAttribute('d', 'M21 12a9 9 0 11-6.219-8.56');
+          authSvg.appendChild(authPath);
+          btn.appendChild(authSvg);
+          btn.appendChild(document.createTextNode(chrome.i18n.getMessage('authorizing')));
           
           chrome.runtime.sendMessage({ type: 'auth:start' }, (response) => {
             btn.disabled = false;
@@ -1515,6 +2018,7 @@ document.getElementById('addChannel').addEventListener('click', () => {
               showStatus(`✅ ${chrome.i18n.getMessage('authorizationSuccess')}`, 'success');
               updateAuthStatus(true);
               loadUserProfile();
+              promptEnableAutoFollow();
             } else {
               showStatus(`❌ ${chrome.i18n.getMessage('authorizationFailed', [response?.error || chrome.i18n.getMessage('unknown')])}`, 'error');
             }
@@ -1524,9 +2028,25 @@ document.getElementById('addChannel').addEventListener('click', () => {
         document.getElementById('testAutoFollow').addEventListener('click', () => {
           const btn = document.getElementById('testAutoFollow');
           btn.disabled = true;
-          btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; animation: spin 1s linear infinite;">
-            <path d="M21 12a9 9 0 11-6.219-8.56"></path>
-          </svg>${chrome.i18n.getMessage('fetching')}`;
+          while (btn.firstChild) {
+            btn.removeChild(btn.firstChild);
+          }
+          const fetchSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          fetchSvg.setAttribute('width', '12');
+          fetchSvg.setAttribute('height', '12');
+          fetchSvg.setAttribute('viewBox', '0 0 24 24');
+          fetchSvg.setAttribute('fill', 'none');
+          fetchSvg.setAttribute('stroke', 'currentColor');
+          fetchSvg.setAttribute('stroke-width', '2');
+          fetchSvg.setAttribute('stroke-linecap', 'round');
+          fetchSvg.setAttribute('stroke-linejoin', 'round');
+          fetchSvg.style.cssText = 'margin-right: 4px; animation: spin 1s linear infinite;';
+          
+          const fetchPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          fetchPath.setAttribute('d', 'M21 12a9 9 0 11-6.219-8.56');
+          fetchSvg.appendChild(fetchPath);
+          btn.appendChild(fetchSvg);
+          btn.appendChild(document.createTextNode(chrome.i18n.getMessage('fetching')));
           
           chrome.runtime.sendMessage({ type: 'test:autoFollow' }, (response) => {
             btn.disabled = false;
@@ -1550,6 +2070,11 @@ document.getElementById('addChannel').addEventListener('click', () => {
               }
               showStatus(message, 'success');
               loadChannels();
+              
+              const currentTab = document.querySelector('.tab-btn.active');
+              if (currentTab && currentTab.id === 'channelsTab') {
+                renderChannelsList();
+              }
             } else {
               showStatus(`❌ ${chrome.i18n.getMessage('fetchFailed', [response?.error || chrome.i18n.getMessage('unknown')])}`, 'error');
             }
@@ -1560,6 +2085,97 @@ document.getElementById('addChannel').addEventListener('click', () => {
 
 
 
+function showChoiceDialog(title, message, confirmText, onConfirm, onCancel, cancelText = null) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+  `;
+  const dialog = document.createElement('div');
+  dialog.style.cssText = `
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    max-width: 320px;
+    width: 90%;
+    box-shadow: var(--shadow-strong);
+  `;
+  const contentDiv = document.createElement('div');
+  contentDiv.style.cssText = 'margin-bottom: var(--spacing-md);';
+  
+  const titleDiv = document.createElement('div');
+  titleDiv.style.cssText = 'font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-sm);';
+  titleDiv.textContent = title;
+  
+  const messageDiv = document.createElement('div');
+  messageDiv.style.cssText = 'font-size: 14px; color: var(--text-secondary); line-height: 1.5;';
+  if (message && typeof message === 'string' && message.indexOf('<br>') !== -1) {
+    const parts = message.split('<br>');
+    parts.forEach((part, index) => {
+      if (index > 0) {
+        messageDiv.appendChild(document.createElement('br'));
+      }
+      messageDiv.appendChild(document.createTextNode(part));
+    });
+  } else {
+    messageDiv.textContent = message;
+  }
+  
+  contentDiv.appendChild(titleDiv);
+  contentDiv.appendChild(messageDiv);
+  
+  const buttonDiv = document.createElement('div');
+  buttonDiv.style.cssText = 'display: flex; gap: var(--spacing-sm); justify-content: flex-end;';
+  
+  const cancelBtn = document.createElement('button');
+  cancelBtn.id = 'choiceCancel';
+  cancelBtn.style.cssText = 'padding: 8px 16px; background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border-light); border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-weight: 500;';
+  cancelBtn.textContent = cancelText || chrome.i18n.getMessage('cancel') || 'Cancel';
+  
+  const okBtn = document.createElement('button');
+  okBtn.id = 'choiceOk';
+  okBtn.style.cssText = 'padding: 8px 16px; background: #7c3aed; color: white; border: 1px solid #7c3aed; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-weight: 600;';
+  okBtn.textContent = confirmText;
+  
+  buttonDiv.appendChild(cancelBtn);
+  buttonDiv.appendChild(okBtn);
+  
+  dialog.appendChild(contentDiv);
+  dialog.appendChild(buttonDiv);
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+  const cancelBtnEl = dialog.querySelector('#choiceCancel');
+  const okBtnEl = dialog.querySelector('#choiceOk');
+  const cleanup = () => { document.body.removeChild(overlay); };
+  cancelBtnEl.addEventListener('click', () => { cleanup(); if (onCancel) onCancel(); });
+  okBtnEl.addEventListener('click', () => { cleanup(); if (onConfirm) onConfirm(); });
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) { cleanup(); } });
+}
+
+function enableAutoFollowSetting() {
+  const autoFollowEl = document.getElementById('autoFollow');
+  if (autoFollowEl) autoFollowEl.checked = true;
+  saveSettings();
+  try { chrome.storage.local.set({ autoFollowPromptCompleted: true }); } catch (_) {}
+}
+
+function promptEnableAutoFollow() {
+  const title = chrome.i18n.getMessage('autoFollowPromptTitle') || 'Enable Auto Tracking?';
+  const message = chrome.i18n.getMessage('autoFollowPromptMessage') || 'When enabled, it will automatically sync streamers you follow on your Twitch account';
+  const confirmText = chrome.i18n.getMessage('enableAction') || 'Enable';
+  showChoiceDialog(title, message, confirmText, enableAutoFollowSetting, () => {
+    try { chrome.storage.local.set({ autoFollowPromptCompleted: true }); } catch (_) {}
+  });
+}
 document.getElementById('channelInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
@@ -1593,55 +2209,71 @@ function showConfirmDialog(message, onConfirm, onCancel, confirmText = null) {
     box-shadow: var(--shadow-strong);
   `;
   
-  dialog.innerHTML = `
-    <div style="margin-bottom: var(--spacing-md);">
-      <div style="font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-sm);">
-        ${chrome.i18n.getMessage('deleteAllChannels')}
-      </div>
-      <div style="font-size: 14px; color: var(--text-secondary); line-height: 1.5;">
-        ${message.includes('<br>') ? message : message.replace(/\n/g, '<br>')}
-      </div>
-    </div>
-    <div style="display: flex; gap: var(--spacing-sm); justify-content: flex-end;">
-      <button id="confirmCancel" style="
-        padding: 8px 16px;
-        background: var(--bg-tertiary);
-        color: var(--text-secondary);
-        border: 1px solid var(--border-light);
-        border-radius: var(--radius-sm);
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
-      ">${chrome.i18n.getMessage('cancel') || 'Cancel'}</button>
-      <button id="confirmOk" style="
-        padding: 8px 16px;
-        background: #ef4444;
-        color: white;
-        border: 1px solid #ef4444;
-        border-radius: var(--radius-sm);
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
-      ">${confirmText || chrome.i18n.getMessage('deleteAllChannels')}</button>
-    </div>
-  `;
+  const contentDiv2 = document.createElement('div');
+  contentDiv2.style.cssText = 'margin-bottom: var(--spacing-md);';
+  
+  const titleDiv2 = document.createElement('div');
+  titleDiv2.style.cssText = 'font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: var(--spacing-sm);';
+  titleDiv2.textContent = chrome.i18n.getMessage('deleteAllChannels');
+  
+  const messageDiv2 = document.createElement('div');
+  messageDiv2.style.cssText = 'font-size: 14px; color: var(--text-secondary); line-height: 1.5;';
+  if (message && typeof message === 'string' && message.indexOf('<br>') !== -1) {
+    const parts = message.split('<br>');
+    parts.forEach((part, index) => {
+      if (index > 0) {
+        messageDiv2.appendChild(document.createElement('br'));
+      }
+      messageDiv2.appendChild(document.createTextNode(part));
+    });
+  } else {
+    const parts = message.split('\n');
+    parts.forEach((part, index) => {
+      if (index > 0) {
+        messageDiv2.appendChild(document.createElement('br'));
+      }
+      messageDiv2.appendChild(document.createTextNode(part));
+    });
+  }
+  
+  contentDiv2.appendChild(titleDiv2);
+  contentDiv2.appendChild(messageDiv2);
+  
+  const buttonDiv2 = document.createElement('div');
+  buttonDiv2.style.cssText = 'display: flex; gap: var(--spacing-sm); justify-content: flex-end;';
+  
+  const cancelBtn2 = document.createElement('button');
+  cancelBtn2.id = 'confirmCancel';
+  cancelBtn2.style.cssText = 'padding: 8px 16px; background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border-light); border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-weight: 500;';
+  cancelBtn2.textContent = chrome.i18n.getMessage('cancel') || 'Cancel';
+  
+  const okBtn2 = document.createElement('button');
+  okBtn2.id = 'confirmOk';
+  okBtn2.style.cssText = 'padding: 8px 16px; background: #ef4444; color: white; border: 1px solid #ef4444; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-weight: 500;';
+  okBtn2.textContent = confirmText || chrome.i18n.getMessage('deleteAllChannels');
+  
+  buttonDiv2.appendChild(cancelBtn2);
+  buttonDiv2.appendChild(okBtn2);
+  
+  dialog.appendChild(contentDiv2);
+  dialog.appendChild(buttonDiv2);
   
   overlay.appendChild(dialog);
   document.body.appendChild(overlay);
   
-  const cancelBtn = dialog.querySelector('#confirmCancel');
-  const okBtn = dialog.querySelector('#confirmOk');
+  const cancelBtn2El = dialog.querySelector('#confirmCancel');
+  const okBtn2El = dialog.querySelector('#confirmOk');
   
   const cleanup = () => {
     document.body.removeChild(overlay);
   };
   
-  cancelBtn.addEventListener('click', () => {
+  cancelBtn2El.addEventListener('click', () => {
     cleanup();
     if (onCancel) onCancel();
   });
   
-  okBtn.addEventListener('click', () => {
+  okBtn2El.addEventListener('click', () => {
     cleanup();
     if (onConfirm) onConfirm();
   });
@@ -1766,9 +2398,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
     reader.readAsText(file);
-    
-    event.target.value = '';
     });
+    
+    importFileInput.value = '';
   }
   
   const deleteAllBtn = document.getElementById('deleteAllChannels');
@@ -1814,7 +2446,7 @@ chrome.runtime.onMessage.addListener((msg) => {
 });
 
 function updateStreamTimes() {
-  const timeElements = document.querySelectorAll('.live-time span[aria-hidden="true"]');
+  const timeElements = document.querySelectorAll('.live-time-badge');
   timeElements.forEach(element => {
     const streamItem = element.closest('.stream-item');
     if (streamItem) {
@@ -1828,23 +2460,11 @@ function updateStreamTimes() {
     }
   });
   
-  const durationLabels = document.querySelectorAll('.duration-label');
-  durationLabels.forEach(element => {
-    const streamItem = element.closest('.stream-item');
-    if (streamItem) {
-      const startTime = streamItem.dataset.startTime;
-      if (startTime) {
-        const newDurationLabel = chrome.i18n.getMessage('liveStreamDuration', [formatStreamTime(startTime)]);
-        if (element.textContent !== newDurationLabel) {
-          element.textContent = newDurationLabel;
-        }
-      }
-    }
-  });
 }
 
 let timeUpdateInterval;
 let countdownInterval;
+  let autoRefreshInterval;
 
 let pollInterval = 60;
 
@@ -1873,6 +2493,35 @@ function stopCountdown() {
   if (countdownInterval) {
     clearInterval(countdownInterval);
     countdownInterval = null;
+  }
+}
+
+function startAutoRefresh() {
+  if (autoRefreshInterval) {
+    clearInterval(autoRefreshInterval);
+  }
+  autoRefreshInterval = setInterval(() => {
+    chrome.runtime.sendMessage({ type: 'streams:list' }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.log('Error refreshing streams:', chrome.runtime.lastError.message);
+        return;
+      }
+      if (response?.payload) {
+        const streamList = document.getElementById('streamsContainer');
+        if (streamList) {
+          const liveStreams = response.payload || [];
+          const offlineStreams = response.offlineStreams || [];
+          updateStreamList(streamList, liveStreams, offlineStreams, null);
+        }
+      }
+    });
+  }, 10000);
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshInterval) {
+    clearInterval(autoRefreshInterval);
+    autoRefreshInterval = null;
   }
 }
 
@@ -1931,16 +2580,33 @@ function i18n() {
   const browserLang = navigator.language || navigator.languages[0];
   document.documentElement.lang = browserLang;
   
+  console.log('i18n function called, browser language:', browserLang);
+  
   const elements = document.querySelectorAll('[data-i18n]');
+  console.log('Found elements with data-i18n:', elements.length);
+  
   elements.forEach(element => {
     const key = element.getAttribute('data-i18n');
     const message = chrome.i18n.getMessage(key);
+    console.log('Key:', key, 'Message:', message, 'Contains <br>:', message && typeof message === 'string' && message.indexOf('<br>') !== -1);
+    
     if (message) {
-      if (message.includes('<br>') || message.includes('<')) {
-        element.innerHTML = message;
+      if (message && typeof message === 'string' && message.indexOf('<br>') !== -1) {
+        const parts = message.split('<br>');
+        while (element.firstChild) {
+          element.removeChild(element.firstChild);
+        }
+        parts.forEach((part, index) => {
+          if (index > 0) {
+            element.appendChild(document.createElement('br'));
+          }
+          element.appendChild(document.createTextNode(part));
+        });
       } else {
         element.textContent = message;
       }
+    } else {
+      console.warn('No message found for key:', key);
     }
   });
   
@@ -2096,14 +2762,1445 @@ document.addEventListener('DOMContentLoaded', () => {
   loadUserProfile();
   startTimeUpdates();
   startCountdown();
+    startAutoRefresh();
+  
+  chrome.runtime.sendMessage({ type: 'settings:get' }, (res) => {
+    const s = res?.settings || {};
+    chrome.storage.local.get(['tsn_access_token','autoFollowPromptCompleted'], (obj) => {
+      const hasToken = !!obj.tsn_access_token || !!s.accessToken;
+      const autoFollowEnabled = !!s.autoFollow;
+      const alreadyCompleted = obj.autoFollowPromptCompleted === true;
+      if (hasToken && !autoFollowEnabled && !alreadyCompleted) {
+        promptEnableAutoFollow();
+      }
+    });
+  });
+
+  const refreshBtn = document.getElementById('refreshChannels');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      refreshBtn.disabled = true;
+      while (refreshBtn.firstChild) {
+        refreshBtn.removeChild(refreshBtn.firstChild);
+      }
+      const refreshSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      refreshSvg.setAttribute('width', '14');
+      refreshSvg.setAttribute('height', '14');
+      refreshSvg.setAttribute('viewBox', '0 0 24 24');
+      refreshSvg.setAttribute('fill', 'none');
+      refreshSvg.setAttribute('stroke', 'currentColor');
+      refreshSvg.setAttribute('stroke-width', '2');
+      refreshSvg.setAttribute('stroke-linecap', 'round');
+      refreshSvg.setAttribute('stroke-linejoin', 'round');
+      refreshSvg.style.cssText = 'animation: spin 1s linear infinite;';
+      
+      const polyline1 = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      polyline1.setAttribute('points', '23 4 23 10 17 10');
+      const polyline2 = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      polyline2.setAttribute('points', '1 20 1 14 7 14');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', 'm3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15');
+      
+      refreshSvg.appendChild(polyline1);
+      refreshSvg.appendChild(polyline2);
+      refreshSvg.appendChild(path);
+      refreshBtn.appendChild(refreshSvg);
+      
+      const span = document.createElement('span');
+      span.textContent = 'Refreshing...';
+      refreshBtn.appendChild(span);
+      
+      refresh();
+      
+      setTimeout(() => {
+        refreshBtn.disabled = false;
+        while (refreshBtn.firstChild) {
+          refreshBtn.removeChild(refreshBtn.firstChild);
+        }
+        const refreshSvg2 = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        refreshSvg2.setAttribute('width', '14');
+        refreshSvg2.setAttribute('height', '14');
+        refreshSvg2.setAttribute('viewBox', '0 0 24 24');
+        refreshSvg2.setAttribute('fill', 'none');
+        refreshSvg2.setAttribute('stroke', 'currentColor');
+        refreshSvg2.setAttribute('stroke-width', '2');
+        refreshSvg2.setAttribute('stroke-linecap', 'round');
+        refreshSvg2.setAttribute('stroke-linejoin', 'round');
+        
+        const polyline1_2 = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        polyline1_2.setAttribute('points', '23 4 23 10 17 10');
+        const polyline2_2 = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        polyline2_2.setAttribute('points', '1 20 1 14 7 14');
+        const path2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path2.setAttribute('d', 'm3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15');
+        
+        refreshSvg2.appendChild(polyline1_2);
+        refreshSvg2.appendChild(polyline2_2);
+        refreshSvg2.appendChild(path2);
+        refreshBtn.appendChild(refreshSvg2);
+        
+        const span2 = document.createElement('span');
+        span2.setAttribute('data-i18n', 'refresh');
+        span2.textContent = 'Refresh';
+        refreshBtn.appendChild(span2);
+      }, 2000);
+    });
+  }
+  
+  const settingsElements = ['muteNotifications', 'hideOffline', 'hidePreviews', 'pollMinutes', 'autoFollow', 'translationEnabled', 'translationProvider', 'targetLanguage', 'customPrefix', 'useKDisplay'];
+  settingsElements.forEach(id => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.addEventListener('change', saveSettings);
+    }
+  });
+
+
 });
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     stopTimeUpdates();
     stopCountdown();
+    stopAutoRefresh();
   } else {
     startTimeUpdates();
     startCountdown();
+    startAutoRefresh();
   }
 });
+
+function showVodModal(channelId, channelName) {
+  const existingModal = document.querySelector('.vod-modal');
+  if (existingModal) {
+    existingModal.remove();
+  }
+  
+  const modal = document.createElement('div');
+  modal.className = 'vod-modal';
+  const modalContent = document.createElement('div');
+  modalContent.className = 'vod-modal-content';
+  
+  const modalHeader = document.createElement('div');
+  modalHeader.className = 'vod-modal-header';
+  
+  const modalTitle = document.createElement('div');
+  modalTitle.className = 'vod-modal-title';
+  
+  const titleSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  titleSvg.setAttribute('width', '16');
+  titleSvg.setAttribute('height', '16');
+  titleSvg.setAttribute('viewBox', '0 0 24 24');
+  titleSvg.setAttribute('fill', 'none');
+  titleSvg.setAttribute('stroke', 'currentColor');
+  titleSvg.setAttribute('stroke-width', '2');
+  titleSvg.setAttribute('stroke-linecap', 'round');
+  titleSvg.setAttribute('stroke-linejoin', 'round');
+  
+  const titlePolygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+  titlePolygon.setAttribute('points', '23 7 16 12 23 17 23 7');
+  const titleRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  titleRect.setAttribute('x', '1');
+  titleRect.setAttribute('y', '5');
+  titleRect.setAttribute('width', '15');
+  titleRect.setAttribute('height', '14');
+  titleRect.setAttribute('rx', '2');
+  titleRect.setAttribute('ry', '2');
+  
+  titleSvg.appendChild(titlePolygon);
+  titleSvg.appendChild(titleRect);
+  modalTitle.appendChild(titleSvg);
+  modalTitle.appendChild(document.createTextNode(` ${channelName} - ${chrome.i18n.getMessage('vodsShort') || 'VODs'}`));
+  
+  const closeBtnEl = document.createElement('button');
+  closeBtnEl.className = 'vod-modal-close';
+  closeBtnEl.textContent = '×';
+  
+  modalHeader.appendChild(modalTitle);
+  modalHeader.appendChild(closeBtnEl);
+  
+  const modalBodyEl = document.createElement('div');
+  modalBodyEl.className = 'vod-modal-body';
+  
+  const loadingDiv = document.createElement('div');
+  loadingDiv.className = 'vod-loading';
+  
+  const spinner = document.createElement('div');
+  spinner.className = 'spinner';
+  
+  const loadingText = document.createElement('div');
+  loadingText.textContent = chrome.i18n.getMessage('loadingVods') || 'Loading VODs...';
+  
+  loadingDiv.appendChild(spinner);
+  loadingDiv.appendChild(loadingText);
+  modalBodyEl.appendChild(loadingDiv);
+  
+  modalContent.appendChild(modalHeader);
+  modalContent.appendChild(modalBodyEl);
+  modal.appendChild(modalContent);
+  
+  document.body.appendChild(modal);
+  
+  setTimeout(() => {
+    modal.classList.add('open');
+  }, 10);
+  
+  closeBtnEl.addEventListener('click', () => {
+    modal.classList.remove('open');
+    setTimeout(() => {
+      modal.remove();
+    }, 400);
+  });
+  
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.classList.remove('open');
+      setTimeout(() => {
+        modal.remove();
+      }, 400);
+    }
+  });
+  const modalBodyEl3 = modal.querySelector('.vod-modal-body');
+  if (modalBodyEl3 && !modalBodyEl3.dataset.tooltipBound) {
+    modalBodyEl3.dataset.tooltipBound = '1';
+    let unifiedTooltipEl = null;
+    const ensureUnifiedTooltip = () => {
+      if (unifiedTooltipEl) return unifiedTooltipEl;
+      const el = document.createElement('div');
+      el.style.cssText = [
+        'position: absolute',
+        'z-index: 10001',
+        'max-width: 320px',
+        'max-height: 260px',
+        'overflow: auto',
+        'padding: 8px 10px',
+        'border-radius: 8px',
+        'border: 1px solid var(--border-light)',
+        'background: var(--bg-secondary)',
+        'color: var(--text-primary)',
+        'box-shadow: var(--shadow-medium)',
+        'line-height: 1.5',
+        'white-space: pre-wrap',
+        'pointer-events: none',
+        'display: none'
+      ].join(';');
+      const host = modal.querySelector('.vod-modal-content') || modal;
+      host.appendChild(el);
+      unifiedTooltipEl = el;
+      return el;
+    };
+    const positionUnifiedTooltip = (ev) => {
+      if (!unifiedTooltipEl || unifiedTooltipEl.style.display === 'none') return;
+      const host = modal.querySelector('.vod-modal-content') || modal;
+      const hostRect = host.getBoundingClientRect();
+      const padding = 12;
+      let x = (ev.clientX - hostRect.left) + padding;
+      let y = (ev.clientY - hostRect.top) + padding;
+      const rect = unifiedTooltipEl.getBoundingClientRect();
+      const maxX = hostRect.width - rect.width - 4;
+      const maxY = hostRect.height - rect.height - 4;
+      if (x > maxX) x = Math.max(4, maxX);
+      if (y > maxY) y = Math.max(4, maxY);
+      unifiedTooltipEl.style.left = `${x}px`;
+      unifiedTooltipEl.style.top = `${y}px`;
+    };
+    modalBodyEl3.addEventListener('mouseover', (e) => {
+      const target = e.target.closest('.stream-title');
+      if (!target) return;
+      const isOverflow = (el) => el && (el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth);
+      if (!isOverflow(target)) return;
+      const content = target.getAttribute('data-full') || target.textContent || '';
+      if (!content) return;
+      const tip = ensureUnifiedTooltip();
+      tip.textContent = content;
+      tip.style.display = 'block';
+      positionUnifiedTooltip(e);
+    });
+    modalBodyEl3.addEventListener('mousemove', (e) => {
+      if (unifiedTooltipEl && unifiedTooltipEl.style.display === 'block') positionUnifiedTooltip(e);
+    });
+    modalBodyEl3.addEventListener('mouseout', (e) => {
+      if (e.target.closest('.stream-title') && !e.relatedTarget?.closest?.('.stream-title')) {
+        if (unifiedTooltipEl) unifiedTooltipEl.style.display = 'none';
+      }
+    });
+  }
+  loadChannelVods(channelId, modal);
+}
+
+function loadChannelVods(channelId, modal) {
+  console.log('Loading VODs for channel:', channelId);
+  chrome.runtime.sendMessage({ 
+    type: 'vods:get', 
+    username: channelId, 
+    limit: 20 
+  }, (response) => {
+    console.log('VOD response received:', response);
+    const modalBodyEl = modal.querySelector('.vod-modal-body');
+    
+    if (chrome.runtime.lastError) {
+      console.error('Chrome runtime error:', chrome.runtime.lastError);
+      while (modalBodyEl.firstChild) {
+        modalBodyEl.removeChild(modalBodyEl.firstChild);
+      }
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'vod-error';
+      const errorSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      errorSvg.setAttribute('width', '24');
+      errorSvg.setAttribute('height', '24');
+      errorSvg.setAttribute('viewBox', '0 0 24 24');
+      errorSvg.setAttribute('fill', 'none');
+      errorSvg.setAttribute('stroke', 'currentColor');
+      errorSvg.setAttribute('stroke-width', '2');
+      errorSvg.setAttribute('stroke-linecap', 'round');
+      errorSvg.setAttribute('stroke-linejoin', 'round');
+      const errorCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      errorCircle.setAttribute('cx', '12');
+      errorCircle.setAttribute('cy', '12');
+      errorCircle.setAttribute('r', '10');
+      const errorLine1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      errorLine1.setAttribute('x1', '15');
+      errorLine1.setAttribute('y1', '9');
+      errorLine1.setAttribute('x2', '9');
+      errorLine1.setAttribute('y2', '15');
+      const errorLine2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      errorLine2.setAttribute('x1', '9');
+      errorLine2.setAttribute('y1', '9');
+      errorLine2.setAttribute('x2', '15');
+      errorLine2.setAttribute('y2', '15');
+      errorSvg.appendChild(errorCircle);
+      errorSvg.appendChild(errorLine1);
+      errorSvg.appendChild(errorLine2);
+      const errorText = document.createElement('div');
+      errorText.style.cssText = 'margin-top: 8px;';
+      errorText.textContent = chrome.i18n.getMessage('errorLoadingVods', [chrome.runtime.lastError.message]) || ('Error loading VODs: ' + chrome.runtime.lastError.message);
+      errorDiv.appendChild(errorSvg);
+      errorDiv.appendChild(errorText);
+      modalBodyEl.appendChild(errorDiv);
+      return;
+    }
+    if (response?.ok) {
+      const items = response.items || response.vods;
+      console.log('VODs loaded successfully:', items.length);
+      renderVodList(items, modalBodyEl, channelId, response.cursor || null);
+    } else {
+      console.error('VOD loading failed:', response);
+      while (modalBodyEl.firstChild) {
+        modalBodyEl.removeChild(modalBodyEl.firstChild);
+      }
+      const errorDiv2 = document.createElement('div');
+      errorDiv2.className = 'vod-error';
+      const errorSvg2 = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      errorSvg2.setAttribute('width', '24');
+      errorSvg2.setAttribute('height', '24');
+      errorSvg2.setAttribute('viewBox', '0 0 24 24');
+      errorSvg2.setAttribute('fill', 'none');
+      errorSvg2.setAttribute('stroke', 'currentColor');
+      errorSvg2.setAttribute('stroke-width', '2');
+      errorSvg2.setAttribute('stroke-linecap', 'round');
+      errorSvg2.setAttribute('stroke-linejoin', 'round');
+      const errorCircle2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      errorCircle2.setAttribute('cx', '12');
+      errorCircle2.setAttribute('cy', '12');
+      errorCircle2.setAttribute('r', '10');
+      const errorLine1_2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      errorLine1_2.setAttribute('x1', '15');
+      errorLine1_2.setAttribute('y1', '9');
+      errorLine1_2.setAttribute('x2', '9');
+      errorLine1_2.setAttribute('y2', '15');
+      const errorLine2_2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      errorLine2_2.setAttribute('x1', '9');
+      errorLine2_2.setAttribute('y1', '9');
+      errorLine2_2.setAttribute('x2', '15');
+      errorLine2_2.setAttribute('y2', '15');
+      errorSvg2.appendChild(errorCircle2);
+      errorSvg2.appendChild(errorLine1_2);
+      errorSvg2.appendChild(errorLine2_2);
+      const errorText2 = document.createElement('div');
+      errorText2.style.cssText = 'margin-top: 8px;';
+      errorText2.textContent = chrome.i18n.getMessage('errorLoadingVods', [response?.error || 'Unknown error']) || ('Error loading VODs: ' + (response?.error || 'Unknown error'));
+      errorDiv2.appendChild(errorSvg2);
+      errorDiv2.appendChild(errorText2);
+      modalBodyEl.appendChild(errorDiv2);
+    }
+  });
+}
+
+function renderVodList(vods, container, channelId = null, cursor = null) {
+  if (!vods || vods.length === 0) {
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+    const emptyDiv = document.createElement('div');
+    emptyDiv.className = 'vod-error';
+    const emptySvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    emptySvg.setAttribute('width', '24');
+    emptySvg.setAttribute('height', '24');
+    emptySvg.setAttribute('viewBox', '0 0 24 24');
+    emptySvg.setAttribute('fill', 'none');
+    emptySvg.setAttribute('stroke', 'currentColor');
+    emptySvg.setAttribute('stroke-width', '2');
+    emptySvg.setAttribute('stroke-linecap', 'round');
+    emptySvg.setAttribute('stroke-linejoin', 'round');
+    const emptyCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    emptyCircle.setAttribute('cx', '12');
+    emptyCircle.setAttribute('cy', '12');
+    emptyCircle.setAttribute('r', '10');
+    const emptyLine1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    emptyLine1.setAttribute('x1', '15');
+    emptyLine1.setAttribute('y1', '9');
+    emptyLine1.setAttribute('x2', '9');
+    emptyLine1.setAttribute('y2', '15');
+    const emptyLine2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    emptyLine2.setAttribute('x1', '9');
+    emptyLine2.setAttribute('y1', '9');
+    emptyLine2.setAttribute('x2', '15');
+    emptyLine2.setAttribute('y2', '15');
+    emptySvg.appendChild(emptyCircle);
+    emptySvg.appendChild(emptyLine1);
+    emptySvg.appendChild(emptyLine2);
+    const emptyText = document.createElement('div');
+    emptyText.style.cssText = 'margin-top: 8px;';
+    emptyText.textContent = chrome.i18n.getMessage('noVodsFound') || 'No VODs found';
+    emptyDiv.appendChild(emptySvg);
+    emptyDiv.appendChild(emptyText);
+    container.appendChild(emptyDiv);
+    return;
+  }
+
+  const vodList = document.createElement('div');
+  vodList.className = 'vod-list';
+  
+  vods.forEach(vod => {
+    const vodItem = document.createElement('div');
+    vodItem.className = 'vod-item';
+    const duration = formatDuration(vod.duration);
+    const views = formatViews(vod.view_count);
+    const date = formatDate(vod.created_at);
+    const isSubOnly = !!(vod && (vod.isSubscriberOnly === true || (typeof vod.viewable === 'string' && vod.viewable.toLowerCase() !== 'public')));
+    const thumbnailUrl = vod.thumbnail_url.replace('%{width}', '320').replace('%{height}', '180');
+    
+    const thumbnailDiv = document.createElement('div');
+    thumbnailDiv.className = 'vod-thumbnail';
+    const imgElement33 = document.createElement('img');
+    imgElement33.src = thumbnailUrl;
+    imgElement33.alt = vod.title || '';
+    thumbnailDiv.appendChild(imgElement33);
+    
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'vod-content';
+    
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'vod-title';
+    titleDiv.style.cssText = 'display:flex;align-items:center;gap:8px;min-width:0;';
+    
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'stream-title';
+    titleSpan.setAttribute('data-full', vod.title || '');
+    titleSpan.style.cssText = 'flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;line-height:1.4;min-height: calc(1.4em * 2);';
+    titleSpan.textContent = vod.title || '';
+    
+    titleDiv.appendChild(titleSpan);
+    contentDiv.appendChild(titleDiv);
+    
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'vod-meta';
+    metaDiv.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;';
+    
+    if (isSubOnly) {
+      const badge = document.createElement('span');
+      badge.className = 'vod-badge';
+      badge.style.cssText = 'padding:2px 6px;border-radius:6px;background:#ef4444;color:#ffffff;border:1px solid #ef4444;font-size:10px;';
+      badge.textContent = chrome.i18n.getMessage('subscriberOnly') || 'Subscriber-only';
+      metaDiv.appendChild(badge);
+    }
+    
+    const durationDiv = document.createElement('div');
+    durationDiv.className = 'vod-duration';
+    durationDiv.textContent = duration;
+    metaDiv.appendChild(durationDiv);
+    
+    const dateDiv = document.createElement('div');
+    dateDiv.className = 'vod-date';
+    dateDiv.textContent = date;
+    metaDiv.appendChild(dateDiv);
+    
+    contentDiv.appendChild(metaDiv);
+    
+    vodItem.appendChild(thumbnailDiv);
+    vodItem.appendChild(contentDiv);
+    const imgElement3 = vodItem.querySelector('img');
+    imgElement3.addEventListener('error', () => { imgElement3.style.display = 'none'; });
+    const thumbEl2 = vodItem.querySelector('.vod-thumbnail');
+    let previewEl2 = null;
+    const showPreview2 = (e) => {
+      if (previewEl2) return;
+      previewEl2 = document.createElement('div');
+      previewEl2.style.cssText = [
+        'position: fixed',
+        'z-index: 10001',
+        'pointer-events: none',
+        'border-radius: 8px',
+        'overflow: hidden',
+        'box-shadow: 0 8px 24px rgba(0,0,0,0.35)',
+        'border: none',
+        'background: var(--bg-secondary)'
+      ].join(';');
+      const bigUrl2 = (vod.thumbnail_url || '').replace('%{width}', '640').replace('%{height}', '360');
+      const previewImg2 = document.createElement('img');
+      previewImg2.src = bigUrl2;
+      previewImg2.style.cssText = 'display:block;width:320px;height:180px;object-fit:cover;';
+      previewEl2.appendChild(previewImg2);
+      document.body.appendChild(previewEl2);
+      positionPreview2(e);
+    };
+    const positionPreview2 = (e) => {
+      if (!previewEl2) return;
+      const padding = 12;
+      let x = e.clientX + padding;
+      let y = e.clientY + padding;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const rect = previewEl2.getBoundingClientRect();
+      if (x + rect.width > vw - 4) x = Math.max(4, vw - rect.width - 4);
+      if (y + rect.height > vh - 4) y = Math.max(4, vh - rect.height - 4);
+      previewEl2.style.left = `${x}px`;
+      previewEl2.style.top = `${y}px`;
+    };
+    const hidePreview2 = () => {
+      if (previewEl2) {
+        previewEl2.remove();
+        previewEl2 = null;
+      }
+    };
+    if (thumbEl2) {
+      thumbEl2.addEventListener('mouseover', showPreview2);
+      thumbEl2.addEventListener('mousemove', positionPreview2);
+      thumbEl2.addEventListener('mouseout', hidePreview2);
+    }
+    
+    vodItem.addEventListener('click', () => {
+      chrome.tabs.create({ url: vod.url });
+    });
+    
+    vodList.appendChild(vodItem);
+  });
+  
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
+  container.appendChild(vodList);
+  if (channelId) {
+    setupVodInfiniteScroll(container, channelId, cursor);
+  }
+}
+
+function setupVodInfiniteScroll(container, channelId, cursor) {
+  let loadingMore = false;
+  let nextCursor = cursor;
+  
+  const statusEl = document.createElement('div');
+  statusEl.className = 'vod-loading';
+  statusEl.textContent = 'Loading more...';
+  container.appendChild(statusEl);
+  const loadMore = () => {
+    if (loadingMore || !nextCursor) return;
+    loadingMore = true;
+    statusEl.textContent = 'Loading more...';
+    chrome.runtime.sendMessage({ type: 'vods:get', username: channelId, limit: 20, after: nextCursor }, (response) => {
+      loadingMore = false;
+      if (chrome.runtime.lastError || !response?.ok) {
+        statusEl.remove();
+        return;
+      }
+      const items = response.items || response.vods;
+      nextCursor = response.cursor;
+      if (!nextCursor) {
+        statusEl.remove();
+      }
+      const list = container.querySelector('.vod-list');
+      items.forEach(vod => {
+        const node = document.createElement('div');
+        node.className = 'vod-item';
+        const duration = formatDuration(vod.duration);
+        const views = formatViews(vod.view_count);
+        const date = formatDate(vod.created_at);
+        const isSubOnly = !!(vod && (vod.isSubscriberOnly === true || (typeof vod.viewable === 'string' && vod.viewable.toLowerCase() !== 'public')));
+        const thumbnailUrl = vod.thumbnail_url.replace('%{width}', '320').replace('%{height}', '180');
+        const thumbnailDiv = document.createElement('div');
+        thumbnailDiv.className = 'vod-thumbnail';
+        const img = document.createElement('img');
+        img.src = thumbnailUrl;
+        img.alt = vod.title || '';
+        thumbnailDiv.appendChild(img);
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'vod-content';
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'vod-title';
+        titleDiv.style.cssText = 'display:flex;align-items:center;gap:8px;min-width:0;';
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'stream-title';
+        titleSpan.setAttribute('data-full', vod.title || '');
+        titleSpan.style.cssText = 'flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;line-height:1.4;min-height: calc(1.4em * 2);';
+        titleSpan.textContent = vod.title || '';
+        titleDiv.appendChild(titleSpan);
+        contentDiv.appendChild(titleDiv);
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'vod-meta';
+        metaDiv.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;';
+        if (isSubOnly) {
+          const badge = document.createElement('span');
+          badge.className = 'vod-badge';
+          badge.style.cssText = 'padding:2px 6px;border-radius:6px;background:#ef4444;color:#ffffff;border:1px solid #ef4444;font-size:10px;';
+          badge.textContent = chrome.i18n.getMessage('subscriberOnly') || 'Subscriber-only';
+          metaDiv.appendChild(badge);
+        }
+        const durationDiv = document.createElement('div');
+        durationDiv.className = 'vod-duration';
+        durationDiv.textContent = duration;
+        metaDiv.appendChild(durationDiv);
+        const dateDiv = document.createElement('div');
+        dateDiv.className = 'vod-date';
+        dateDiv.textContent = date;
+        metaDiv.appendChild(dateDiv);
+        contentDiv.appendChild(metaDiv);
+        node.appendChild(thumbnailDiv);
+        node.appendChild(contentDiv);
+        const imgElement3 = node.querySelector('img');
+        imgElement3.addEventListener('error', () => { imgElement3.style.display = 'none'; });
+        const thumbEl2 = node.querySelector('.vod-thumbnail');
+        let previewEl2 = null;
+        const showPreview2 = (e) => {
+          if (previewEl2) return;
+          previewEl2 = document.createElement('div');
+          previewEl2.style.cssText = [
+            'position: fixed',
+            'z-index: 10001',
+            'pointer-events: none',
+            'border-radius: 8px',
+            'overflow: hidden',
+            'box-shadow: 0 8px 24px rgba(0,0,0,0.35)',
+            'border: none',
+            'background: var(--bg-secondary)'
+          ].join(';');
+          const bigUrl2 = (vod.thumbnail_url || '').replace('%{width}', '640').replace('%{height}', '360');
+          const previewImg2 = document.createElement('img');
+          previewImg2.src = bigUrl2;
+          previewImg2.style.cssText = 'display:block;width:320px;height:180px;object-fit:cover;';
+          previewEl2.appendChild(previewImg2);
+          document.body.appendChild(previewEl2);
+          positionPreview2(e);
+        };
+        const positionPreview2 = (e) => {
+          if (!previewEl2) return;
+          const padding = 12;
+          let x = e.clientX + padding;
+          let y = e.clientY + padding;
+          const vw = window.innerWidth;
+          const vh = window.innerHeight;
+          const rect = previewEl2.getBoundingClientRect();
+          if (x + rect.width > vw - 4) x = Math.max(4, vw - rect.width - 4);
+          if (y + rect.height > vh - 4) y = Math.max(4, vh - rect.height - 4);
+          previewEl2.style.left = `${x}px`;
+          previewEl2.style.top = `${y}px`;
+        };
+        const hidePreview2 = () => {
+          if (previewEl2) {
+            previewEl2.remove();
+            previewEl2 = null;
+          }
+        };
+        if (thumbEl2) {
+          thumbEl2.addEventListener('mouseover', showPreview2);
+          thumbEl2.addEventListener('mousemove', positionPreview2);
+          thumbEl2.addEventListener('mouseout', hidePreview2);
+        }
+        node.addEventListener('click', () => {
+          chrome.tabs.create({ url: vod.url });
+        });
+        list.appendChild(node);
+      });
+    });
+  };
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        loadMore();
+      }
+    });
+  });
+  observer.observe(statusEl);
+}
+
+function loadVods(channelId, modalBodyEl, after = null) {
+  chrome.runtime.sendMessage({ type: 'vods:get', username: channelId, limit: 20, after }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.error('Chrome runtime error:', chrome.runtime.lastError);
+      return;
+    }
+    
+    if (response?.ok && (response.items || response.vods)) {
+      const items = response.items || response.vods;
+      console.log('VODs loaded successfully:', items.length);
+      renderVodList(items, modalBodyEl, channelId, response.cursor || null);
+    } else {
+      console.error('VOD loading failed:', response);
+      while (modalBodyEl.firstChild) {
+        modalBodyEl.removeChild(modalBodyEl.firstChild);
+      }
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'vod-error';
+      const errorSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      errorSvg.setAttribute('width', '24');
+      errorSvg.setAttribute('height', '24');
+      errorSvg.setAttribute('viewBox', '0 0 24 24');
+      errorSvg.setAttribute('fill', 'none');
+      errorSvg.setAttribute('stroke', 'currentColor');
+      errorSvg.setAttribute('stroke-width', '2');
+      errorSvg.setAttribute('stroke-linecap', 'round');
+      errorSvg.setAttribute('stroke-linejoin', 'round');
+      const errorCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      errorCircle.setAttribute('cx', '12');
+      errorCircle.setAttribute('cy', '12');
+      errorCircle.setAttribute('r', '10');
+      const errorLine1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      errorLine1.setAttribute('x1', '15');
+      errorLine1.setAttribute('y1', '9');
+      errorLine1.setAttribute('x2', '9');
+      errorLine1.setAttribute('y2', '15');
+      const errorLine2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      errorLine2.setAttribute('x1', '9');
+      errorLine2.setAttribute('y1', '9');
+      errorLine2.setAttribute('x2', '15');
+      errorLine2.setAttribute('y2', '15');
+      errorSvg.appendChild(errorCircle);
+      errorSvg.appendChild(errorLine1);
+      errorSvg.appendChild(errorLine2);
+      const errorText = document.createElement('div');
+      errorText.style.cssText = 'margin-top: 8px;';
+      errorText.textContent = chrome.i18n.getMessage('errorLoadingVods', [chrome.runtime.lastError.message]) || ('Error loading VODs: ' + chrome.runtime.lastError.message);
+      errorDiv.appendChild(errorSvg);
+      errorDiv.appendChild(errorText);
+      modalBodyEl.appendChild(errorDiv);
+      return;
+    }
+    if (response?.ok) {
+      const items = response.items || response.vods;
+      console.log('VODs loaded successfully:', items.length);
+      renderVodList(items, modalBodyEl, channelId, response.cursor || null);
+    } else {
+      console.error('VOD loading failed:', response);
+      while (modalBodyEl.firstChild) {
+        modalBodyEl.removeChild(modalBodyEl.firstChild);
+      }
+      const errorDiv2 = document.createElement('div');
+      errorDiv2.className = 'vod-error';
+      const errorSvg2 = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      errorSvg2.setAttribute('width', '24');
+      errorSvg2.setAttribute('height', '24');
+      errorSvg2.setAttribute('viewBox', '0 0 24 24');
+      errorSvg2.setAttribute('fill', 'none');
+      errorSvg2.setAttribute('stroke', 'currentColor');
+      errorSvg2.setAttribute('stroke-width', '2');
+      errorSvg2.setAttribute('stroke-linecap', 'round');
+      errorSvg2.setAttribute('stroke-linejoin', 'round');
+      const errorCircle2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      errorCircle2.setAttribute('cx', '12');
+      errorCircle2.setAttribute('cy', '12');
+      errorCircle2.setAttribute('r', '10');
+      const errorLine1_2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      errorLine1_2.setAttribute('x1', '15');
+      errorLine1_2.setAttribute('y1', '9');
+      errorLine1_2.setAttribute('x2', '9');
+      errorLine1_2.setAttribute('y2', '15');
+      const errorLine2_2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      errorLine2_2.setAttribute('x1', '9');
+      errorLine2_2.setAttribute('y1', '9');
+      errorLine2_2.setAttribute('x2', '15');
+      errorLine2_2.setAttribute('y2', '15');
+      errorSvg2.appendChild(errorCircle2);
+      errorSvg2.appendChild(errorLine1_2);
+      errorSvg2.appendChild(errorLine2_2);
+      const errorText2 = document.createElement('div');
+      errorText2.style.cssText = 'margin-top: 8px;';
+      errorText2.textContent = chrome.i18n.getMessage('errorLoadingVods', [response?.error || 'Unknown error']) || ('Error loading VODs: ' + (response?.error || 'Unknown error'));
+      errorDiv2.appendChild(errorSvg2);
+      errorDiv2.appendChild(errorText2);
+      modalBodyEl.appendChild(errorDiv2);
+    }
+  });
+}
+
+function renderVodList(vods, container, channelId = null, cursor = null) {
+  if (!vods || vods.length === 0) {
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+    const emptyDiv = document.createElement('div');
+    emptyDiv.className = 'vod-error';
+    const emptySvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    emptySvg.setAttribute('width', '24');
+    emptySvg.setAttribute('height', '24');
+    emptySvg.setAttribute('viewBox', '0 0 24 24');
+    emptySvg.setAttribute('fill', 'none');
+    emptySvg.setAttribute('stroke', 'currentColor');
+    emptySvg.setAttribute('stroke-width', '2');
+    emptySvg.setAttribute('stroke-linecap', 'round');
+    emptySvg.setAttribute('stroke-linejoin', 'round');
+    const emptyCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    emptyCircle.setAttribute('cx', '12');
+    emptyCircle.setAttribute('cy', '12');
+    emptyCircle.setAttribute('r', '10');
+    const emptyLine1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    emptyLine1.setAttribute('x1', '15');
+    emptyLine1.setAttribute('y1', '9');
+    emptyLine1.setAttribute('x2', '9');
+    emptyLine1.setAttribute('y2', '15');
+    const emptyLine2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    emptyLine2.setAttribute('x1', '9');
+    emptyLine2.setAttribute('y1', '9');
+    emptyLine2.setAttribute('x2', '15');
+    emptyLine2.setAttribute('y2', '15');
+    emptySvg.appendChild(emptyCircle);
+    emptySvg.appendChild(emptyLine1);
+    emptySvg.appendChild(emptyLine2);
+    const emptyText = document.createElement('div');
+    emptyText.style.cssText = 'margin-top: 8px;';
+    emptyText.textContent = chrome.i18n.getMessage('noVodsFound') || 'No VODs found';
+    emptyDiv.appendChild(emptySvg);
+    emptyDiv.appendChild(emptyText);
+    container.appendChild(emptyDiv);
+    return;
+  }
+  
+  const vodList = document.createElement('div');
+  vodList.className = 'vod-list';
+  
+  vods.forEach(vod => {
+    const vodItem = document.createElement('div');
+    vodItem.className = 'vod-item';
+    const duration = formatDuration(vod.duration);
+    const views = formatViews(vod.view_count);
+    const date = formatDate(vod.created_at);
+    const isSubOnly = !!(vod && (vod.isSubscriberOnly === true || (typeof vod.viewable === 'string' && vod.viewable.toLowerCase() !== 'public')));
+    const thumbnailUrl = vod.thumbnail_url.replace('%{width}', '320').replace('%{height}', '180');
+    
+    const thumbnailDiv = document.createElement('div');
+    thumbnailDiv.className = 'vod-thumbnail';
+    const imgElement33 = document.createElement('img');
+    imgElement33.src = thumbnailUrl;
+    imgElement33.alt = vod.title || '';
+    thumbnailDiv.appendChild(imgElement33);
+    
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'vod-content';
+    
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'vod-title';
+    titleDiv.style.cssText = 'display:flex;align-items:center;gap:8px;min-width:0;';
+    
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'stream-title';
+    titleSpan.setAttribute('data-full', vod.title || '');
+    titleSpan.style.cssText = 'flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;line-height:1.4;min-height: calc(1.4em * 2);';
+    titleSpan.textContent = vod.title || '';
+    
+    titleDiv.appendChild(titleSpan);
+    contentDiv.appendChild(titleDiv);
+    
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'vod-meta';
+    metaDiv.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;';
+    
+    if (isSubOnly) {
+      const badge = document.createElement('span');
+      badge.className = 'vod-badge';
+      badge.style.cssText = 'padding:2px 6px;border-radius:6px;background:#ef4444;color:#ffffff;border:1px solid #ef4444;font-size:10px;';
+      badge.textContent = chrome.i18n.getMessage('subscriberOnly') || 'Subscriber-only';
+      metaDiv.appendChild(badge);
+    }
+    
+    const durationDiv = document.createElement('div');
+    durationDiv.className = 'vod-duration';
+    durationDiv.textContent = duration;
+    metaDiv.appendChild(durationDiv);
+    
+    const dateDiv = document.createElement('div');
+    dateDiv.className = 'vod-date';
+    dateDiv.textContent = date;
+    metaDiv.appendChild(dateDiv);
+    
+    contentDiv.appendChild(metaDiv);
+    
+    vodItem.appendChild(thumbnailDiv);
+    vodItem.appendChild(contentDiv);
+    const imgElement3 = vodItem.querySelector('img');
+    imgElement3.addEventListener('error', () => { imgElement3.style.display = 'none'; });
+    const thumbEl2 = vodItem.querySelector('.vod-thumbnail');
+    let previewEl2 = null;
+    const showPreview2 = (e) => {
+      if (previewEl2) return;
+      previewEl2 = document.createElement('div');
+      previewEl2.style.cssText = [
+        'position: fixed',
+        'z-index: 10001',
+        'pointer-events: none',
+        'border-radius: 8px',
+        'overflow: hidden',
+        'box-shadow: 0 8px 24px rgba(0,0,0,0.35)',
+        'border: none',
+        'background: var(--bg-secondary)'
+      ].join(';');
+      const bigUrl2 = (vod.thumbnail_url || '').replace('%{width}', '640').replace('%{height}', '360');
+      const previewImg2 = document.createElement('img');
+      previewImg2.src = bigUrl2;
+      previewImg2.style.cssText = 'display:block;width:320px;height:180px;object-fit:cover;';
+      previewEl2.appendChild(previewImg2);
+      document.body.appendChild(previewEl2);
+      positionPreview2(e);
+    };
+    const positionPreview2 = (e) => {
+      if (!previewEl2) return;
+      const padding = 12;
+      let x = e.clientX + padding;
+      let y = e.clientY + padding;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const rect = previewEl2.getBoundingClientRect();
+      if (x + rect.width > vw - 4) x = Math.max(4, vw - rect.width - 4);
+      if (y + rect.height > vh - 4) y = Math.max(4, vh - rect.height - 4);
+      previewEl2.style.left = `${x}px`;
+      previewEl2.style.top = `${y}px`;
+    };
+    const hidePreview2 = () => {
+      if (previewEl2) {
+        previewEl2.remove();
+        previewEl2 = null;
+      }
+    };
+    if (thumbEl2) {
+      thumbEl2.addEventListener('mouseover', showPreview2);
+      thumbEl2.addEventListener('mousemove', positionPreview2);
+      thumbEl2.addEventListener('mouseout', hidePreview2);
+    }
+    
+    vodItem.addEventListener('click', () => {
+      chrome.tabs.create({ url: vod.url });
+    });
+    
+    vodList.appendChild(vodItem);
+  });
+  
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
+  container.appendChild(vodList);
+  if (channelId) {
+    setupVodInfiniteScroll(container, channelId, cursor);
+  }
+}
+
+function setupVodInfiniteScroll(container, channelId, cursor) {
+  let loadingMore = false;
+  let nextCursor = cursor;
+  
+  const statusEl = document.createElement('div');
+  statusEl.className = 'vod-loading';
+  statusEl.textContent = 'Loading more...';
+  container.appendChild(statusEl);
+  const loadMore = () => {
+    if (loadingMore || !nextCursor) return;
+    loadingMore = true;
+    statusEl.textContent = 'Loading more...';
+    chrome.runtime.sendMessage({ type: 'vods:get', username: channelId, limit: 20, after: nextCursor }, (response) => {
+      loadingMore = false;
+      if (chrome.runtime.lastError || !response?.ok) {
+        statusEl.remove();
+        return;
+      }
+      const items = response.items || response.vods;
+      nextCursor = response.cursor;
+      if (!nextCursor) {
+        statusEl.remove();
+      }
+      const list = container.querySelector('.vod-list');
+      items.forEach(vod => {
+        const node = document.createElement('div');
+        node.className = 'vod-item';
+        const duration = formatDuration(vod.duration);
+        const views = formatViews(vod.view_count);
+        const date = formatDate(vod.created_at);
+        const isSubOnly = !!(vod && (vod.isSubscriberOnly === true || (typeof vod.viewable === 'string' && vod.viewable.toLowerCase() !== 'public')));
+        const thumbnailUrl = vod.thumbnail_url.replace('%{width}', '320').replace('%{height}', '180');
+        const thumbnailDiv = document.createElement('div');
+        thumbnailDiv.className = 'vod-thumbnail';
+        const img = document.createElement('img');
+        img.src = thumbnailUrl;
+        img.alt = vod.title || '';
+        thumbnailDiv.appendChild(img);
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'vod-content';
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'vod-title';
+        titleDiv.style.cssText = 'display:flex;align-items:center;gap:8px;min-width:0;';
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'stream-title';
+        titleSpan.setAttribute('data-full', vod.title || '');
+        titleSpan.style.cssText = 'flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;line-height:1.4;min-height: calc(1.4em * 2);';
+        titleSpan.textContent = vod.title || '';
+        titleDiv.appendChild(titleSpan);
+        contentDiv.appendChild(titleDiv);
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'vod-meta';
+        metaDiv.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;';
+        if (isSubOnly) {
+          const badge = document.createElement('span');
+          badge.className = 'vod-badge';
+          badge.style.cssText = 'padding:2px 6px;border-radius:6px;background:#ef4444;color:#ffffff;border:1px solid #ef4444;font-size:10px;';
+          badge.textContent = chrome.i18n.getMessage('subscriberOnly') || 'Subscriber-only';
+          metaDiv.appendChild(badge);
+        }
+        const durationDiv = document.createElement('div');
+        durationDiv.className = 'vod-duration';
+        durationDiv.textContent = duration;
+        metaDiv.appendChild(durationDiv);
+        const dateDiv = document.createElement('div');
+        dateDiv.className = 'vod-date';
+        dateDiv.textContent = date;
+        metaDiv.appendChild(dateDiv);
+        contentDiv.appendChild(metaDiv);
+        node.appendChild(thumbnailDiv);
+        node.appendChild(contentDiv);
+        const imgElement3 = node.querySelector('img');
+        imgElement3.addEventListener('error', () => { imgElement3.style.display = 'none'; });
+        const thumbEl2 = node.querySelector('.vod-thumbnail');
+        let previewEl2 = null;
+        const showPreview2 = (e) => {
+          if (previewEl2) return;
+          previewEl2 = document.createElement('div');
+          previewEl2.style.cssText = [
+            'position: fixed',
+            'z-index: 10001',
+            'pointer-events: none',
+            'border-radius: 8px',
+            'overflow: hidden',
+            'box-shadow: 0 8px 24px rgba(0,0,0,0.35)',
+            'border: none',
+            'background: var(--bg-secondary)'
+          ].join(';');
+          const bigUrl2 = (vod.thumbnail_url || '').replace('%{width}', '640').replace('%{height}', '360');
+          const previewImg2 = document.createElement('img');
+          previewImg2.src = bigUrl2;
+          previewImg2.style.cssText = 'display:block;width:320px;height:180px;object-fit:cover;';
+          previewEl2.appendChild(previewImg2);
+          document.body.appendChild(previewEl2);
+          positionPreview2(e);
+        };
+        const positionPreview2 = (e) => {
+          if (!previewEl2) return;
+          const padding = 12;
+          let x = e.clientX + padding;
+          let y = e.clientY + padding;
+          const vw = window.innerWidth;
+          const vh = window.innerHeight;
+          const rect = previewEl2.getBoundingClientRect();
+          if (x + rect.width > vw - 4) x = Math.max(4, vw - rect.width - 4);
+          if (y + rect.height > vh - 4) y = Math.max(4, vh - rect.height - 4);
+          previewEl2.style.left = `${x}px`;
+          previewEl2.style.top = `${y}px`;
+        };
+        const hidePreview2 = () => {
+          if (previewEl2) {
+            previewEl2.remove();
+            previewEl2 = null;
+          }
+        };
+        if (thumbEl2) {
+          thumbEl2.addEventListener('mouseover', showPreview2);
+          thumbEl2.addEventListener('mousemove', positionPreview2);
+          thumbEl2.addEventListener('mouseout', hidePreview2);
+        }
+        node.addEventListener('click', () => {
+          chrome.tabs.create({ url: vod.url });
+        });
+        list.appendChild(node);
+      });
+    });
+  };
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        loadMore();
+      }
+    });
+  });
+  observer.observe(statusEl);
+}
+
+function renderVodList(vods, container, channelId = null, cursor = null) {
+  if (!vods || vods.length === 0) {
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+    const emptyDiv = document.createElement('div');
+    emptyDiv.className = 'vod-error';
+    
+    const emptySvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    emptySvg.setAttribute('width', '24');
+    emptySvg.setAttribute('height', '24');
+    emptySvg.setAttribute('viewBox', '0 0 24 24');
+    emptySvg.setAttribute('fill', 'none');
+    emptySvg.setAttribute('stroke', 'currentColor');
+    emptySvg.setAttribute('stroke-width', '2');
+    emptySvg.setAttribute('stroke-linecap', 'round');
+    emptySvg.setAttribute('stroke-linejoin', 'round');
+    
+    const emptyRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    emptyRect.setAttribute('x', '2');
+    emptyRect.setAttribute('y', '7');
+    emptyRect.setAttribute('width', '20');
+    emptyRect.setAttribute('height', '15');
+    emptyRect.setAttribute('rx', '2');
+    emptyRect.setAttribute('ry', '2');
+    const emptyPolyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    emptyPolyline.setAttribute('points', '17 2 12 7 7 2');
+    
+    emptySvg.appendChild(emptyRect);
+    emptySvg.appendChild(emptyPolyline);
+    
+    const emptyText = document.createElement('div');
+    emptyText.style.cssText = 'margin-top: 8px;';
+    emptyText.textContent = chrome.i18n.getMessage('noVodsFoundForChannel') || 'No VODs found for this channel';
+    
+    emptyDiv.appendChild(emptySvg);
+    emptyDiv.appendChild(emptyText);
+    container.appendChild(emptyDiv);
+    return;
+  }
+  
+  const vodList = document.createElement('div');
+  vodList.className = 'vod-list';
+  
+  vods.forEach(vod => {
+    const vodItem = document.createElement('div');
+    vodItem.className = 'vod-item';
+    
+    const duration = formatDuration(vod.duration);
+    const views = formatViews(vod.view_count);
+    const date = formatDate(vod.created_at);
+    const isSubOnly = !!(vod && (vod.isSubscriberOnly === true || (typeof vod.viewable === 'string' && vod.viewable.toLowerCase() !== 'public')));
+    
+    const thumbnailUrl = vod.thumbnail_url.replace('%{width}', '320').replace('%{height}', '180');
+    
+    const thumbnailDiv = document.createElement('div');
+    thumbnailDiv.className = 'vod-thumbnail';
+    const imgElement33 = document.createElement('img');
+    imgElement33.src = thumbnailUrl;
+    imgElement33.alt = vod.title || '';
+    thumbnailDiv.appendChild(imgElement33);
+    
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'vod-content';
+    
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'vod-title';
+    titleDiv.style.cssText = 'display:flex;align-items:center;gap:8px;min-width:0;';
+    
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'stream-title';
+    titleSpan.setAttribute('data-full', (vod.title || '').replace(/\\/g, "\\").replace(/\n/g, ' ').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+    titleSpan.style.cssText = 'flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;line-height:1.4;min-height: calc(1.4em * 2);';
+    titleSpan.textContent = vod.title || '';
+    titleDiv.appendChild(titleSpan);
+    
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'vod-meta';
+    metaDiv.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;';
+    
+    if (isSubOnly) {
+      const badge = document.createElement('span');
+      badge.className = 'vod-badge';
+      badge.style.cssText = 'padding:2px 6px;border-radius:6px;background:#ef4444;color:#ffffff;border:1px solid #ef4444;font-size:10px;';
+      badge.textContent = chrome.i18n.getMessage('subscriberOnly') || 'Subscriber-only';
+      metaDiv.appendChild(badge);
+    }
+    
+    const durationDiv = document.createElement('div');
+    durationDiv.className = 'vod-duration';
+    durationDiv.textContent = duration;
+    metaDiv.appendChild(durationDiv);
+    
+    const dateDiv = document.createElement('div');
+    dateDiv.className = 'vod-date';
+    dateDiv.textContent = date;
+    metaDiv.appendChild(dateDiv);
+    
+    contentDiv.appendChild(titleDiv);
+    contentDiv.appendChild(metaDiv);
+    
+    vodItem.appendChild(thumbnailDiv);
+    vodItem.appendChild(contentDiv);
+    
+    const imgElement32 = vodItem.querySelector('img');
+    imgElement32.addEventListener('error', () => {
+      imgElement32.style.display = 'none';
+    });
+    
+    const thumbEl = vodItem.querySelector('.vod-thumbnail');
+    let previewEl = null;
+    const showPreview = (e) => {
+      if (previewEl) return;
+      previewEl = document.createElement('div');
+      previewEl.style.cssText = [
+        'position: fixed',
+        'z-index: 10001',
+        'pointer-events: none',
+        'border-radius: 8px',
+        'overflow: hidden',
+        'box-shadow: 0 8px 24px rgba(0,0,0,0.35)',
+        'border: none',
+        'background: var(--bg-secondary)'
+      ].join(';');
+      const bigUrl = (vod.thumbnail_url || '').replace('%{width}', '640').replace('%{height}', '360');
+      const previewImg = document.createElement('img');
+      previewImg.src = bigUrl;
+      previewImg.style.cssText = 'display:block;width:320px;height:180px;object-fit:cover;';
+      previewEl.appendChild(previewImg);
+      document.body.appendChild(previewEl);
+      positionPreview(e);
+    };
+    const positionPreview = (e) => {
+      if (!previewEl) return;
+      const padding = 12;
+      let x = e.clientX + padding;
+      let y = e.clientY + padding;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const rect = previewEl.getBoundingClientRect();
+      if (x + rect.width > vw - 4) x = Math.max(4, vw - rect.width - 4);
+      if (y + rect.height > vh - 4) y = Math.max(4, vh - rect.height - 4);
+      previewEl.style.left = `${x}px`;
+      previewEl.style.top = `${y}px`;
+    };
+    const hidePreview = () => {
+      if (previewEl) {
+        previewEl.remove();
+        previewEl = null;
+      }
+    };
+    if (thumbEl) {
+      thumbEl.addEventListener('mouseover', showPreview);
+      thumbEl.addEventListener('mousemove', positionPreview);
+      thumbEl.addEventListener('mouseout', hidePreview);
+    }
+    
+    vodItem.addEventListener('click', () => {
+      chrome.tabs.create({ url: vod.url });
+    });
+    
+    vodList.appendChild(vodItem);
+  });
+  
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
+  container.appendChild(vodList);
+  if (channelId) {
+    setupVodInfiniteScroll(container, channelId, cursor);
+  }
+}
+
+function setupVodInfiniteScroll(container, channelId, cursor) {
+  let loadingMore = false;
+  let nextCursor = cursor;
+  const sentinel = document.createElement('div');
+  sentinel.style.height = '1px';
+  sentinel.style.width = '100%';
+  container.appendChild(sentinel);
+  const statusEl = document.createElement('div');
+  statusEl.className = 'vod-load-status';
+  statusEl.style.cssText = 'padding: 12px; text-align: center; color: var(--text-muted); font-size: 12px;';
+  container.appendChild(statusEl);
+  const loadMore = () => {
+    if (loadingMore || !nextCursor) return;
+    loadingMore = true;
+    statusEl.textContent = chrome.i18n.getMessage('loadingMoreVods') || 'Loading more...';
+    chrome.runtime.sendMessage({ type: 'vods:get', username: channelId, limit: 20, after: nextCursor }, (response) => {
+      loadingMore = false;
+      if (chrome.runtime.lastError || !response?.ok) return;
+      const items = response.items || response.vods || [];
+      nextCursor = response.cursor || null;
+      const list = container.querySelector('.vod-list');
+      items.forEach(vod => {
+        const node = document.createElement('div');
+        node.className = 'vod-item';
+        const duration = formatDuration(vod.duration);
+        const views = formatViews(vod.view_count);
+        const date = formatDate(vod.created_at);
+        const isSubOnly = !!(vod && (vod.isSubscriberOnly === true || (typeof vod.viewable === 'string' && vod.viewable.toLowerCase() !== 'public')));
+        const thumbnailUrl = vod.thumbnail_url.replace('%{width}', '320').replace('%{height}', '180');
+        const thumbnailDiv = document.createElement('div');
+        thumbnailDiv.className = 'vod-thumbnail';
+        const img = document.createElement('img');
+        img.src = thumbnailUrl;
+        img.alt = vod.title || '';
+        thumbnailDiv.appendChild(img);
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'vod-content';
+        
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'vod-title';
+        titleDiv.style.cssText = 'display:flex;align-items:center;gap:8px;min-width:0;';
+        
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'stream-title';
+        titleSpan.setAttribute('data-full', vod.title || '');
+        titleSpan.style.cssText = 'flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;line-height:1.4;min-height: calc(1.4em * 2);';
+        titleSpan.textContent = vod.title || '';
+        
+        titleDiv.appendChild(titleSpan);
+        contentDiv.appendChild(titleDiv);
+        
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'vod-meta';
+        metaDiv.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;';
+        
+        if (isSubOnly) {
+          const badge = document.createElement('span');
+          badge.className = 'vod-badge';
+          badge.style.cssText = 'padding:2px 6px;border-radius:6px;background:#ef4444;color:#ffffff;border:1px solid #ef4444;font-size:10px;';
+          badge.textContent = chrome.i18n.getMessage('subscriberOnly') || 'Subscriber-only';
+          metaDiv.appendChild(badge);
+        }
+        
+        const durationDiv = document.createElement('div');
+        durationDiv.className = 'vod-duration';
+        durationDiv.textContent = duration;
+        metaDiv.appendChild(durationDiv);
+        
+        const dateDiv = document.createElement('div');
+        dateDiv.className = 'vod-date';
+        dateDiv.textContent = date;
+        metaDiv.appendChild(dateDiv);
+        
+        contentDiv.appendChild(metaDiv);
+        
+        node.appendChild(thumbnailDiv);
+        node.appendChild(contentDiv);
+        const imgElement3 = node.querySelector('img');
+        imgElement3.addEventListener('error', () => { imgElement3.style.display = 'none'; });
+        const thumbEl2 = node.querySelector('.vod-thumbnail');
+        let previewEl2 = null;
+        const showPreview2 = (e) => {
+          if (previewEl2) return;
+          previewEl2 = document.createElement('div');
+          previewEl2.style.cssText = [
+            'position: fixed',
+            'z-index: 10001',
+            'pointer-events: none',
+            'border-radius: 8px',
+            'overflow: hidden',
+            'box-shadow: 0 8px 24px rgba(0,0,0,0.35)',
+            'border: none',
+            'background: var(--bg-secondary)'
+          ].join(';');
+          const bigUrl2 = (vod.thumbnail_url || '').replace('%{width}', '640').replace('%{height}', '360');
+          const previewImg2 = document.createElement('img');
+          previewImg2.src = bigUrl2;
+          previewImg2.style.cssText = 'display:block;width:320px;height:180px;object-fit:cover;';
+          previewEl2.appendChild(previewImg2);
+          document.body.appendChild(previewEl2);
+          positionPreview2(e);
+        };
+        const positionPreview2 = (e) => {
+          if (!previewEl2) return;
+          const padding = 12;
+          let x = e.clientX + padding;
+          let y = e.clientY + padding;
+          const vw = window.innerWidth;
+          const vh = window.innerHeight;
+          const rect = previewEl2.getBoundingClientRect();
+          if (x + rect.width > vw - 4) x = Math.max(4, vw - rect.width - 4);
+          if (y + rect.height > vh - 4) y = Math.max(4, vh - rect.height - 4);
+          previewEl2.style.left = `${x}px`;
+          previewEl2.style.top = `${y}px`;
+        };
+        const hidePreview2 = () => {
+          if (previewEl2) { previewEl2.remove(); previewEl2 = null; }
+        };
+        if (thumbEl2) {
+          thumbEl2.addEventListener('mouseover', showPreview2);
+          thumbEl2.addEventListener('mousemove', positionPreview2);
+          thumbEl2.addEventListener('mouseout', hidePreview2);
+        }
+        node.addEventListener('click', () => { chrome.tabs.create({ url: vod.url }); });
+        list.appendChild(node);
+      });
+      if (!nextCursor) {
+        statusEl.textContent = chrome.i18n.getMessage('noMoreVods') || 'No more VODs';
+        observer.disconnect();
+      } else {
+        statusEl.textContent = '';
+      }
+    });
+  };
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) loadMore();
+    });
+  }, { root: container, rootMargin: '200px' });
+  observer.observe(sentinel);
+}
+
+function formatDuration(duration) {
+  if (typeof duration === 'string') {
+    const match = duration.match(/(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?/);
+    if (match) {
+      const hours = parseInt(match[1] || '0');
+      const minutes = parseInt(match[2] || '0');
+      const seconds = parseInt(match[3] || '0');
+      
+      if (hours > 0) {
+        return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      } else {
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      }
+    }
+    return duration;
+  } else {
+    const hours = Math.floor(duration / 3600);
+    const minutes = Math.floor((duration % 3600) / 60);
+    const secs = duration % 60;
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    } else {
+      return `${minutes}:${secs.toString().padStart(2, '0')}`;
+    }
+  }
+}
+
+function formatViews(count) {
+  if (count >= 1000000) {
+    return (count / 1000000).toFixed(1) + 'M';
+  } else if (count >= 1000) {
+    return (count / 1000).toFixed(1) + 'K';
+  }
+  return count.toString();
+}
+
+function formatDate(dateString) {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) {
+    return chrome.i18n.getMessage('todayLabel') || 'Today';
+  } else if (diffDays === 1) {
+    return chrome.i18n.getMessage('yesterdayLabel') || 'Yesterday';
+  } else {
+    return date.toLocaleDateString();
+  }
+}
