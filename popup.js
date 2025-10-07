@@ -908,7 +908,12 @@ function updateStreamItemContent(item, stream, settings) {
   
   const gameName = item.querySelector('.game-name');
   if (gameName) {
-    gameName.textContent = stream.game;
+    if (stream.game) {
+      gameName.textContent = stream.game;
+      gameName.style.display = '';
+    } else {
+      gameName.style.display = 'none';
+    }
   }
   
   const avatar = item.querySelector('.streamer-avatar');
@@ -1014,7 +1019,7 @@ async function createStreamItem(stream, settings) {
               </div>
               <strong class="viewer-count">${formatViewerCount(stream.viewers || 0)}</strong>
               <p class="viewer-label">${chrome.i18n.getMessage('viewerCount')}: ${formatViewerCount(stream.viewers || 0)}</p>
-                <span class="game-name ${settings.hidePreviews ? 'game-name-full' : ''}">${stream.game}</span>
+                ${stream.game ? `<span class="game-name ${settings.hidePreviews ? 'game-name-full' : ''}">${stream.game}</span>` : ''}
             </div>
               <div class="duration-section" style="display:none"></div>
             </div>
