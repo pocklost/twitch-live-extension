@@ -502,7 +502,7 @@
     "description": "Enable chat translation label"
   },
   "chatTargetLanguage": {
-    "message": "Chat target language",
+    "message": "Translate chat to",
     "description": "Chat target language label"
   },
   "chatTranslationPrefix": {

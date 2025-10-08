@@ -502,7 +502,7 @@
     "description": "Enable chat translation label"
   },
   "chatTargetLanguage": {
-    "message": "채팅 대상 언어",
+    "message": "채팅을 번역할 언어",
     "description": "Chat target language label"
   },
   "chatTranslationPrefix": {

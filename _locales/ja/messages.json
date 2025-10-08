@@ -503,7 +503,7 @@
     "description": "Enable chat translation label"
   },
   "chatTargetLanguage": {
-    "message": "チャット対象言語",
+    "message": "チャットを翻訳先",
     "description": "Chat target language label"
   },
   "chatTranslationPrefix": {
