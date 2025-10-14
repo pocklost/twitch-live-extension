@@ -139,6 +139,18 @@
     "message": "プレビューを非表示",
     "description": "Hide previews checkbox"
   },
+  "featureAutoBonus": {
+    "message": "チャンネルポイントを自動受け取り",
+    "description": "Auto claim channel points feature label"
+  },
+  "featureChattersCount": {
+    "message": "Twitch チャッター数",
+    "description": "Twitch Chatters Count feature label"
+  },
+  "settingsRefreshHint": {
+    "message": "設定を変更した後、Twitch ページを再読み込みして反映してください。",
+    "description": "Notice shown under settings"
+  },
   "checkInterval": {
     "message": "チェック間隔（分）",
     "description": "Check interval label"
@@ -523,6 +535,7 @@
     "description": "Hint to refresh page after changing translation settings"
   }
   ,
+  
   "accountCreatedAt": {
     "message": "アカウント作成: $1",
     "description": "Account created at with localized date",

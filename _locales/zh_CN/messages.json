@@ -139,6 +139,18 @@
     "message": "隐藏预览图",
     "description": "Hide previews checkbox"
   },
+  "featureAutoBonus": {
+    "message": "自动领取频道积分",
+    "description": "Auto claim channel points feature label"
+  },
+  "featureChattersCount": {
+    "message": "Twitch 聊天人数统计",
+    "description": "Twitch Chatters Count feature label"
+  },
+  "settingsRefreshHint": {
+    "message": "更改设置后，请刷新 Twitch 页面以生效。",
+    "description": "Notice shown under settings"
+  },
   "checkInterval": {
     "message": "检查间隔（分钟）",
     "description": "Check interval label"

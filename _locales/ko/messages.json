@@ -139,6 +139,18 @@
     "message": "미리보기 숨기기",
     "description": "Hide previews checkbox"
   },
+  "featureAutoBonus": {
+    "message": "채널 포인트 자동 수령",
+    "description": "Auto claim channel points feature label"
+  },
+  "featureChattersCount": {
+    "message": "Twitch 채팅 인원 수",
+    "description": "Twitch Chatters Count feature label"
+  },
+  "settingsRefreshHint": {
+    "message": "설정을 변경한 후 적용을 위해 Twitch 페이지를 새로고침하세요.",
+    "description": "Notice shown under settings"
+  },
   "checkInterval": {
     "message": "확인 간격 (분)",
     "description": "Check interval label"

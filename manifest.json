@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_extensionName__",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "__MSG_extensionDescription__",
   "default_locale": "en",
   "icons": {
@@ -33,13 +33,13 @@
   "content_scripts": [
     {
       "matches": ["https://www.twitch.tv/*"],
-      "js": ["content.js"],
+      "js": ["content.js", "chatters-count.js", "auto-bonus.js"],
       "run_at": "document_end"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["authorization-success.html", "authorization-success.js"],
+      "resources": ["authorization-success.html", "authorization-success.js", "chatters-count.page.js"],
       "matches": ["https://www.twitch.tv/*"]
     }
   ],

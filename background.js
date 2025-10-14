@@ -1102,6 +1102,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg?.type === 'settings:get') {
       const obj = await tracker.read([STORAGE.settings]);
       const settings = obj[STORAGE.settings] || {};
+      if (settings.autoBonusEnabled === undefined) settings.autoBonusEnabled = true;
+      if (settings.chattersCountEnabled === undefined) settings.chattersCountEnabled = true;
       if (settings.hideOffline === undefined) {
         settings.hideOffline = true;
       }
@@ -1118,6 +1120,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         next.pollMinutes = Math.max(1, Number(next.pollMinutes || 1));
         if (next.hideOffline === undefined) {
           next.hideOffline = true;
+        }
+        if (next.autoBonusEnabled === undefined) {
+          next.autoBonusEnabled = true;
+        }
+        if (next.chattersCountEnabled === undefined) {
+          next.chattersCountEnabled = true;
         }
         
         

@@ -139,6 +139,18 @@
     "message": "Hide previews",
     "description": "Hide previews checkbox"
   },
+  "featureAutoBonus": {
+    "message": "Auto claim channel points",
+    "description": "Auto claim channel points feature label"
+  },
+  "featureChattersCount": {
+    "message": "Twitch Chatters Count",
+    "description": "Twitch Chatters Count feature label"
+  },
+  "settingsRefreshHint": {
+    "message": "After changing settings, refresh the Twitch page for changes to take effect.",
+    "description": "Notice shown under settings"
+  },
   "checkInterval": {
     "message": "Check interval (minutes)",
     "description": "Check interval label"
@@ -522,6 +534,7 @@
     "description": "Hint to refresh page after changing translation settings"
   }
   ,
+  
   "accountCreatedAt": {
     "message": "Account created: $1",
     "description": "Account created at with localized date",

@@ -139,6 +139,18 @@
     "message": "隱藏預覽圖",
     "description": "Hide previews checkbox"
   },
+  "featureAutoBonus": {
+    "message": "自動領取忠誠點數",
+    "description": "Auto claim channel points feature label"
+  },
+  "featureChattersCount": {
+    "message": "Twitch 聊天人數統計",
+    "description": "Twitch Chatters Count feature label"
+  },
+  "settingsRefreshHint": {
+    "message": "變更設定後，請重新整理 Twitch 頁面以生效。",
+    "description": "Notice shown under settings"
+  },
   "checkInterval": {
     "message": "檢查間隔（分鐘）",
     "description": "Check interval label"
@@ -522,6 +534,7 @@
     "description": "Hint to refresh page after changing translation settings"
   }
   ,
+  
   "accountCreatedAt": {
     "message": "帳號創立：$1",
     "description": "Account created at with localized date",

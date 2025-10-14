@@ -71,7 +71,6 @@ function switchTab(tabName) {
   if (manualChannelSection) manualChannelSection.style.display = 'none';
   if (autoTrackingSection) autoTrackingSection.style.display = 'none';
   if (notificationSettingsSection) notificationSettingsSection.style.display = 'none';
-  if (translationSection) translationSection.style.display = 'none';
   if (backupSection) backupSection.style.display = 'none';
   if (settingsStatusBar) settingsStatusBar.style.display = 'none';
 
@@ -171,6 +170,8 @@ function loadSettings() {
     const targetLanguageEl = document.getElementById('targetLanguage');
     const customPrefixEl = document.getElementById('customPrefix');
     const useKDisplayEl = document.getElementById('useKDisplay');
+    const autoBonusEnabledEl = document.getElementById('autoBonusEnabled');
+    const chattersCountEnabledEl = document.getElementById('chattersCountEnabled');
     
     if (muteNotificationsEl) muteNotificationsEl.checked = !!s.muteNotifications;
     if (hideOfflineEl) hideOfflineEl.checked = s.hideOffline !== false;
@@ -192,6 +193,14 @@ function loadSettings() {
     }
     if (useKDisplayEl) {
       useKDisplayEl.checked = s.useKDisplay === true;
+    }
+    if (autoBonusEnabledEl) {
+      autoBonusEnabledEl.checked = s.autoBonusEnabled !== false;
+    }
+    if (chattersCountEnabledEl) {
+      const chattersDefault = (s.chattersCountEnabled !== false);
+      chattersCountEnabledEl.checked = chattersDefault;
+      chattersCountEnabledEl.addEventListener('change', saveSettings);
     }
     
     viewerCountSettings.useKDisplay = s.useKDisplay === true;
@@ -384,6 +393,8 @@ function saveSettings() {
   const targetLanguageEl = document.getElementById('targetLanguage');
   const customPrefixEl = document.getElementById('customPrefix');
   const useKDisplayEl = document.getElementById('useKDisplay');
+  const autoBonusEnabledEl = document.getElementById('autoBonusEnabled');
+  const chattersCountEnabledEl = document.getElementById('chattersCountEnabled');
   
   const settings = {
     muteNotifications: muteNotificationsEl ? muteNotificationsEl.checked : false,
@@ -395,7 +406,9 @@ function saveSettings() {
     translationProvider: translationProviderEl ? translationProviderEl.value : 'microsoft',
     targetLanguage: targetLanguageEl ? targetLanguageEl.value : 'en',
     customPrefix: customPrefixEl ? customPrefixEl.value : '',
-    useKDisplay: useKDisplayEl ? useKDisplayEl.checked : false
+    useKDisplay: useKDisplayEl ? useKDisplayEl.checked : false,
+    autoBonusEnabled: autoBonusEnabledEl ? autoBonusEnabledEl.checked : true,
+    chattersCountEnabled: chattersCountEnabledEl ? chattersCountEnabledEl.checked : true
   };
   
   viewerCountSettings.useKDisplay = settings.useKDisplay;
@@ -724,6 +737,59 @@ function shouldShowTooltip(element, context = '') {
 }
 
 
+let __globalUnifiedTooltipEl = null;
+function ensureGlobalUnifiedTooltip() {
+  if (__globalUnifiedTooltipEl) return __globalUnifiedTooltipEl;
+  const el = document.createElement('div');
+  el.style.cssText = [
+    'position: fixed',
+    'z-index: 9999',
+    'pointer-events: none',
+    'max-width: 320px',
+    'max-height: 260px',
+    'overflow: auto',
+    'padding: 8px 10px',
+    'border-radius: 8px',
+    'border: 1px solid var(--border-light)',
+    'background: var(--bg-secondary)',
+    'color: var(--text-primary)',
+    'box-shadow: var(--shadow-medium)',
+    'line-height: 1.5',
+    'white-space: pre-wrap',
+    'display: none'
+  ].join(';');
+  document.body.appendChild(el);
+  __globalUnifiedTooltipEl = el;
+  return el;
+}
+function showUnifiedTooltip(ev, text) {
+  const tip = ensureGlobalUnifiedTooltip();
+  tip.textContent = text || '';
+  tip.style.display = text ? 'block' : 'none';
+  moveUnifiedTooltip(ev);
+}
+function moveUnifiedTooltip(ev) {
+  if (!__globalUnifiedTooltipEl || __globalUnifiedTooltipEl.style.display === 'none') return;
+  const padding = 12;
+  let x = ev.clientX + padding;
+  let y = ev.clientY + padding;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const rect = __globalUnifiedTooltipEl.getBoundingClientRect();
+  if (x + rect.width > vw - 4) x = Math.max(4, vw - rect.width - 4);
+  if (y + rect.height > vh - 4) y = Math.max(4, vh - rect.height - 4);
+  __globalUnifiedTooltipEl.style.left = `${x}px`;
+  __globalUnifiedTooltipEl.style.top = `${y}px`;
+}
+function hideUnifiedTooltip() {
+  if (__globalUnifiedTooltipEl) __globalUnifiedTooltipEl.style.display = 'none';
+}
+
+['scroll','wheel','touchstart','touchmove','blur','keydown','resize'].forEach(evt => {
+  window.addEventListener(evt, () => hideUnifiedTooltip(), { passive: true });
+});
+
+
 async function translateText(text, targetLanguage, provider = 'microsoft') {
   if (!text || !targetLanguage) return text;
   
@@ -1033,6 +1099,71 @@ async function createStreamItem(stream, settings) {
     while (tempDiv.firstChild) {
       item.appendChild(tempDiv.firstChild);
     }
+    try {
+      chrome.storage.local.get(['tsn_favorites'], (obj) => {
+        const fav = obj?.tsn_favorites || {};
+        const id = String((stream.username || stream.channel?.display_name) || '').toLowerCase();
+        const btn = document.createElement('button');
+        btn.className = 'btn-fav';
+        btn.setAttribute('data-channel-id', id);
+        btn.setAttribute('aria-label', chrome.i18n.getMessage('favoriteShort') || '我的最愛');
+        btn.innerHTML = '<svg class="fav-icon" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/></svg>';
+        const icon = btn.querySelector('.fav-icon');
+        if (fav[id]) { btn.style.background = 'rgba(239, 68, 68, 0.9)'; icon.style.color = '#ffffff'; }
+        item.appendChild(btn);
+        const streamList = document.getElementById('streamList');
+        if (streamList) {
+          streamList.addEventListener('mouseover', (e) => {
+            const b = e.target.closest && e.target.closest('.btn-fav');
+            if (b && b === btn) {
+              const tipText = fav[id] ? (chrome.i18n.getMessage('remove') || '移除') + ' ' + (chrome.i18n.getMessage('favoriteShort') || '我的最愛') : (chrome.i18n.getMessage('add') || '新增') + ' ' + (chrome.i18n.getMessage('favoriteShort') || '我的最愛');
+              showUnifiedTooltip(e, tipText);
+            }
+          });
+          streamList.addEventListener('mousemove', (e) => {
+            const b = e.target.closest && e.target.closest('.btn-fav');
+            if (b && b === btn) moveUnifiedTooltip(e);
+          });
+          streamList.addEventListener('mouseout', (e) => {
+            const wasFav = e.target.closest && e.target.closest('.btn-fav');
+            const stillOnFav = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.btn-fav');
+            if (wasFav && !stillOnFav) {
+              hideUnifiedTooltip();
+              btn.style.opacity = '';
+              btn.style.visibility = '';
+            }
+          });
+        }
+        btn.addEventListener('mouseenter', (e) => {
+          const tipText = fav[id] ? (chrome.i18n.getMessage('remove') || '移除') + ' ' + (chrome.i18n.getMessage('favoriteShort') || '我的最愛') : (chrome.i18n.getMessage('add') || '新增') + ' ' + (chrome.i18n.getMessage('favoriteShort') || '我的最愛');
+          showUnifiedTooltip(e, tipText);
+        });
+        btn.addEventListener('mouseleave', () => {
+          hideUnifiedTooltip();
+          btn.style.opacity = '';
+          btn.style.visibility = '';
+        });
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          btn.style.transform = 'scale(0.95)';
+          setTimeout(() => { btn.style.transform = 'scale(1)'; }, 100);
+          chrome.storage.local.get(['tsn_favorites'], (o2) => {
+            const fav2 = o2?.tsn_favorites || {};
+            fav2[id] = fav2[id] ? false : true;
+            if (!fav2[id]) delete fav2[id];
+            chrome.storage.local.set({ tsn_favorites: fav2 }, () => {
+              const ic = btn.querySelector('.fav-icon');
+              if (ic) {
+                if (fav2[id]) { btn.style.background = 'rgba(239, 68, 68, 0.9)'; ic.style.color = '#ffffff'; }
+                else { btn.style.background = 'rgba(0,0,0,0.6)'; ic.style.color = '#ffffff'; }
+              }
+              hideUnifiedTooltip();
+              refresh();
+            });
+          });
+        });
+      });
+    } catch (_) {}
     if (removeBtn) {
       item.appendChild(removeBtn);
     }
@@ -1673,28 +1804,36 @@ function renderChannelsList() {
               icon.style.stroke = '#ffffff';
             }
           }
+          const tipText = fav[id] ? (chrome.i18n.getMessage('remove') || '移除') + ' ' + (chrome.i18n.getMessage('favoriteShort') || '我的最愛') : (chrome.i18n.getMessage('add') || '新增') + ' ' + (chrome.i18n.getMessage('favoriteShort') || '我的最愛');
+          showUnifiedTooltip(e, tipText);
         });
       }
     });
+    channelsListEl.addEventListener('mousemove', (e) => {
+      const btn = e.target.closest && e.target.closest('.btn-fav');
+      if (btn) moveUnifiedTooltip(e);
+    });
     channelsListEl.addEventListener('mouseout', (e) => {
       const btn = e.target.closest && e.target.closest('.btn-fav');
-      if (btn) {
+      const stillOnFav = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.btn-fav');
+      if (btn && !stillOnFav) {
         const icon = btn.querySelector('.fav-icon');
         const id = String(btn.getAttribute('data-channel-id') || '').toLowerCase();
         chrome.storage.local.get(['tsn_favorites'], (obj) => {
           const fav = obj?.tsn_favorites || {};
           if (icon) {
-            if (fav[id]) { 
+            if (fav[id]) {
               btn.style.background = 'rgba(239, 68, 68, 0.9)';
               icon.style.fill = '#ffffff';
               icon.style.stroke = '#ffffff';
-            } else { 
+            } else {
               btn.style.background = 'rgba(0,0,0,0.6)';
               icon.style.fill = 'none';
               icon.style.stroke = '#ffffff';
             }
             btn.style.transform = 'translateY(-50%) scale(1)';
           }
+          hideUnifiedTooltip();
         });
       }
     });
