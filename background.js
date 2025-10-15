@@ -66,24 +66,6 @@ class StreamStateManager {
       followDates[username] = date;
       await this.setFollowDates(followDates);
     }
-    if (msg?.action === 'closeCurrentTab') {
-      try {
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-          const current = tabs && tabs[0];
-          if (current && current.id) {
-            chrome.tabs.remove(current.id, () => {
-              sendResponse({ success: true });
-            });
-          } else {
-            sendResponse({ success: false, error: 'No active tab' });
-          }
-        });
-      } catch (e) {
-        console.error('Error closing current tab:', e);
-        sendResponse({ success: false, error: String(e?.message || e) });
-      }
-      return;
-    }
   }
 
   async getLastStreamTimes() {

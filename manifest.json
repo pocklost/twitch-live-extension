@@ -17,13 +17,11 @@
   "permissions": [
     "storage",
     "notifications",
-    "alarms",
-    "activeTab"
+    "alarms"
   ],
   "host_permissions": [
     "https://api.twitch.tv/*",
     "https://id.twitch.tv/*",
-    "https://static-cdn.jtvnw.net/*",
     "https://www.twitch.tv/*",
     "https://gql.twitch.tv/*",
     "https://translate.googleapis.com/*",
@@ -44,7 +42,7 @@
     }
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://api.twitch.tv https://id.twitch.tv https://gql.twitch.tv https://translate.googleapis.com https://api-edge.cognitive.microsofttranslator.com https://edge.microsoft.com; frame-ancestors 'none';"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://api.twitch.tv https://id.twitch.tv https://gql.twitch.tv https://translate.googleapis.com https://api-edge.cognitive.microsofttranslator.com https://edge.microsoft.com; frame-ancestors 'none'; base-uri 'self';"
   }
 }
 
