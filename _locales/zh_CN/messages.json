@@ -646,5 +646,17 @@
   "subscriberOnly": {
     "message": "订阅",
     "description": "订阅者限定视频徽章"
+  },
+  "supportDeveloper": {
+    "message": "支持开发者",
+    "description": "支持开发者区块标题"
+  },
+  "supportDeveloperDescription": {
+    "message": "如果这个扩展功能对你有帮助<br>欢迎支持开发者继续改进！",
+    "description": "支持开发者描述文字"
+  },
+  "supportDeveloperButton": {
+    "message": "支持开发者",
+    "description": "支持开发者按钮文字"
   }
 }

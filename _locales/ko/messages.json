@@ -645,5 +645,17 @@
   "subscriberOnly": {
     "message": "구독",
     "description": "구독 전용 동영상 배지"
+  },
+  "supportDeveloper": {
+    "message": "개발자 지원",
+    "description": "개발자 지원 섹션 제목"
+  },
+  "supportDeveloperDescription": {
+    "message": "이 확장 기능이 도움이 되었다면<br>개발자의 지속적인 개선을 지원해 주세요!",
+    "description": "개발자 지원 설명 텍스트"
+  },
+  "supportDeveloperButton": {
+    "message": "개발자 지원",
+    "description": "개발자 지원 버튼 텍스트"
   }
 }

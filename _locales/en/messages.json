@@ -661,5 +661,17 @@
   "subscriberOnly": {
     "message": "Sub",
     "description": "Badge label for subscriber-only videos"
+  },
+  "supportDeveloper": {
+    "message": "Support Developer",
+    "description": "Support developer section title"
+  },
+  "supportDeveloperDescription": {
+    "message": "If this extension helps you<br>Welcome to support the developer to continue improving!",
+    "description": "Support developer description text"
+  },
+  "supportDeveloperButton": {
+    "message": "Support Developer",
+    "description": "Support developer button text"
   }
 }

@@ -1336,7 +1336,7 @@
       }
 
       .settings-container {
-        padding: var(--spacing-md);
+        padding: 20px;
         height: calc(100vh - 50px);
         overflow-y: auto;
         margin-bottom: 50px;
@@ -1344,69 +1344,79 @@
       }
 
       .settings-section {
-        margin-bottom: 15px;
+        margin-bottom: 14px;
         background: var(--bg-secondary);
         border: 1px solid var(--border-light);
-        border-radius: var(--radius-md);
-        box-shadow: var(--shadow-subtle);
-        padding: var(--spacing-md);
+        border-radius: 8px;
+        padding: 20px;
       }
 
       .section-title {
-        font-size: 16px;
-        font-weight: 700;
+        font-size: 18px;
+        font-weight: 600;
         color: var(--text-primary);
-        margin-bottom: var(--spacing-md);
+        margin-bottom: 16px;
         display: flex;
         align-items: center;
-        gap: var(--spacing-sm);
+        gap: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border-light);
       }
 
       .input-group {
         display: flex;
-        gap: var(--spacing-sm);
-        margin-bottom: var(--spacing-md);
+        gap: 8px;
+        margin-bottom: 16px;
+        align-items: center;
       }
 
       .text-input {
         flex: 1;
-        padding: 8px 12px;
-        border: 1px solid var(--border-light);
-        border-radius: var(--radius-sm);
+        padding: 10px 12px;
+        border: 1px solid var(--border-medium);
+        border-radius: 6px;
         background: var(--bg-primary);
         color: var(--text-primary);
-        font-size: 13px;
-        transition: all 0.2s ease;
+        font-size: 14px;
+        transition: border-color 0.2s ease;
       }
 
       .text-input:focus {
         outline: none;
         border-color: var(--primary);
-        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
       }
 
       .btn-primary {
-        padding: 8px 16px;
+        padding: 10px 16px;
         background: var(--primary);
         color: white;
         border: none;
-        border-radius: var(--radius-sm);
-        font-weight: 600;
+        border-radius: 6px;
+        font-weight: 500;
         cursor: pointer;
-        transition: all 0.2s ease;
-        font-size: 13px;
+        transition: background-color 0.2s ease;
+        font-size: 14px;
       }
 
       .btn-primary:hover {
         background: var(--primary-dark);
-        transform: translateY(-1px);
+      }
+
+      #exportSettings:hover {
+        background: #059669 !important;
+        border-color: #059669 !important;
+      }
+
+      #importSettings:hover {
+        background: #2563eb !important;
+        border-color: #2563eb !important;
       }
 
       .help-text {
-        font-size: 14px;
+        font-size: 13.5px;
         color: var(--text-muted);
-        margin-bottom: var(--spacing-md);
-        line-height: 1.4;
+        margin-bottom: 16px;
+        line-height: 1.5;
       }
 
       .auth-status {
@@ -1424,27 +1434,27 @@
       .tags {
         display: flex;
         flex-wrap: wrap;
-        gap: var(--spacing-xs);
-        margin-bottom: var(--spacing-md);
+        gap: 6px;
+        margin-bottom: 16px;
       }
 
       .tag {
         display: inline-flex;
         align-items: center;
-        gap: var(--spacing-xs);
-        padding: 4px 8px;
+        gap: 6px;
+        padding: 6px 10px;
         background: var(--bg-tertiary);
         border: 1px solid var(--border-light);
-        border-radius: 12px;
-        font-size: 11px;
+        border-radius: 4px;
+        font-size: 12px;
         font-weight: 500;
         color: var(--text-secondary);
-        transition: all 0.2s ease;
+        transition: background-color 0.2s ease;
       }
 
       .tag-remove {
-        width: 14px;
-        height: 14px;
+        width: 16px;
+        height: 16px;
         border: none;
         background: none;
         color: var(--text-muted);
@@ -1454,7 +1464,7 @@
         align-items: center;
         justify-content: center;
         font-size: 12px;
-        transition: all 0.2s ease;
+        transition: background-color 0.2s ease;
       }
 
       .tag-remove:hover {
@@ -1465,32 +1475,32 @@
       .settings-grid {
         display: grid;
         grid-template-columns: 1fr;
-        gap: var(--spacing-md);
-        margin-bottom: var(--spacing-md);
+        gap: 6px;
+        margin-bottom: 16px;
       }
 
       .option {
         display: flex;
         align-items: center;
-        gap: var(--spacing-sm);
-        font-size: 13px;
+        gap: 10px;
+        font-size: 14px;
         color: var(--text-secondary);
+        padding: 4px 0;
       }
 
       .checkbox {
-        width: 20px;
-        height: 20px;
+        width: 18px;
+        height: 18px;
         border: 2px solid var(--border-medium);
-        border-radius: 6px;
+        border-radius: 4px;
         position: relative;
         cursor: pointer;
-        transition: all 0.3s ease;
+        transition: border-color 0.2s ease;
         background: var(--bg-primary);
       }
 
       .checkbox:hover {
         border-color: var(--primary);
-        transform: scale(1.05);
       }
 
       .checkbox input {
@@ -1505,7 +1515,6 @@
       .checkbox input:checked + .checkmark {
         background: var(--primary);
         border-color: var(--primary);
-        transform: scale(1.1);
       }
 
       .checkbox input:checked + .checkmark::after {
@@ -1519,8 +1528,8 @@
         left: 0;
         right: 0;
         bottom: 0;
-        border-radius: 6px;
-        transition: all 0.3s ease;
+        border-radius: 4px;
+        transition: all 0.2s ease;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1536,19 +1545,19 @@
         font-size: 12px;
         font-weight: bold;
         opacity: 0;
-        transition: all 0.3s ease;
-        text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        transition: all 0.2s ease;
       }
 
       .number-input {
         width: 60px;
-        padding: 4px 8px;
-        border: 1px solid var(--border-light);
-        border-radius: var(--radius-sm);
+        padding: 6px 8px;
+        border: 1px solid var(--border-medium);
+        border-radius: 4px;
         background: var(--bg-primary);
         color: var(--text-primary);
-        font-size: 12px;
+        font-size: 13px;
         text-align: center;
+        transition: border-color 0.2s ease;
       }
 
       .number-input:focus {
@@ -1557,6 +1566,59 @@
       }
 
       .section-divider { display: none; }
+
+      .donation-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%);
+        color: white;
+        text-decoration: none;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .donation-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s ease;
+      }
+
+      .donation-btn:hover::before {
+        left: 100%;
+      }
+
+      .donation-btn:hover {
+        background: linear-gradient(135deg, #ff5252 0%, #ff7979 100%);
+        transform: translateY(-2px);
+        text-decoration: none;
+        color: white;
+      }
+
+      .donation-btn:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+      }
+
+      .donation-btn svg {
+        transition: transform 0.3s ease;
+      }
+
+      .donation-btn:hover svg {
+        transform: scale(1.1) rotate(10deg);
+      }
     </style>
   </head>
   <body>
@@ -1798,7 +1860,7 @@
                   <div class="help-text">
                     <span data-i18n="autoFollowHelp">When enabled, it will automatically sync streamers you follow on your Twitch account</span>
                   </div>
-                  <div class="auth-section">
+                  <div class="auth-section" style="display: none;">
                     <button class="btn-primary" id="testAutoFollow" style="margin-bottom: 16px;">
                       <span data-i18n="manualTriggerAutoFetch">Manually trigger auto fetch</span>
                     </button>
@@ -1947,7 +2009,7 @@
                     </label>
                   </div>
                   
-                <div class="help-text">
+                <div class="help-text" style="text-align: center;">
                   <span data-i18n="translationRefreshHint">After changing translation settings, refresh the Twitch page for changes to take effect.</span>
                 </div>
                 </div>
@@ -2024,6 +2086,25 @@
                   </div>
                 </div>
 
+                <div class="settings-section" id="donationSection">
+                  <h3 class="section-title"><span aria-hidden="true" style="display:inline-flex;align-items:center;gap:6px;vertical-align:middle;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                  </span> <span data-i18n="supportDeveloper"></span></h3>
+                  <div style="text-align: center; padding: 16px 0;">
+                    <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 16px; line-height: 1.5;">
+                      <span data-i18n="supportDeveloperDescription"></span>
+                    </p>
+                    <a href="https://ko-fi.com/pocket377" target="_blank" class="donation-btn">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                      </svg>
+                      <span data-i18n="supportDeveloperButton"></span>
+                    </a>
+                  </div>
+                </div>
+
                 <div class="settings-section" id="backupSection" style="display: none;">
                   <h3 class="section-title"><span aria-hidden="true" style="display:inline-flex;align-items:center;gap:6px;vertical-align:middle;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2032,7 +2113,7 @@
                       <line x1="8" y1="17" x2="16" y2="17"/>
                     </svg>
                   </span> <span data-i18n="settingsBackup"></span></h3>
-                  <div class="input-group" style="margin-bottom: 12px;">
+                  <div class="input-group" style="margin-top: 30px; margin-bottom: 12px; justify-content: center;">
                     <button class="btn-primary" id="exportSettings" style="background: #10b981; border-color: #10b981; margin-right: 8px; display: inline-flex; align-items: center; gap: 6px;">
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5-5 5 5"/><path d="M12 15V5"/></svg>
                       <span data-i18n="exportSettings"></span>
@@ -2042,12 +2123,11 @@
                       <span data-i18n="importSettings"></span>
                     </button>
                   </div>
-                  <div class="help-text">
+                  <div class="help-text" style="text-align: center;">
                     <span data-i18n="settingsBackupHelp"></span>
                   </div>
                   <input type="file" id="importFileInput" accept=".json" style="display: none;">
                 </div>
-
         </div>
         
         <div class="status-bar" id="settingsStatusBar" style="display: none;">

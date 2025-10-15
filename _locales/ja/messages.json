@@ -421,11 +421,11 @@
     "description": "Settings backup section title"
   },
   "exportSettings": {
-    "message": "設定をエクスポート",
+    "message": "設定を保存",
     "description": "Export settings button"
   },
   "importSettings": {
-    "message": "設定をインポート",
+    "message": "設定を読込",
     "description": "Import settings button"
   },
   "settingsBackupHelp": {
@@ -647,5 +647,17 @@
   "subscriberOnly": {
     "message": "サブ",
     "description": "サブスク限定動画のバッジ"
+  },
+  "supportDeveloper": {
+    "message": "開発者をサポート",
+    "description": "開発者サポートセクションタイトル"
+  },
+  "supportDeveloperDescription": {
+    "message": "この拡張機能がお役に立ちましたら<br>開発者の継続的な改善をサポートしてください！",
+    "description": "開発者サポート説明文"
+  },
+  "supportDeveloperButton": {
+    "message": "開発者をサポート",
+    "description": "開発者サポートボタンテキスト"
   }
 }
