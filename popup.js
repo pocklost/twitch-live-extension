@@ -1029,7 +1029,7 @@ async function createStreamItem(stream, settings) {
     removeBtn = document.createElement('button');
     removeBtn.className = 'remove-btn';
     removeBtn.textContent = '×';
-    removeBtn.title = chrome.i18n.getMessage('remove');
+    removeBtn.setAttribute('aria-label', chrome.i18n.getMessage('remove'));
     removeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       const confirmMessage = chrome.i18n.getMessage('confirmDeleteChannel', [stream.username]);
@@ -1051,6 +1051,17 @@ async function createStreamItem(stream, settings) {
         }
       });
       }, null, chrome.i18n.getMessage('confirmDelete'));
+    });
+
+    removeBtn.addEventListener('mouseenter', (e) => {
+      const tipText = chrome.i18n.getMessage('remove') || '移除';
+      showUnifiedTooltip(e, tipText);
+    });
+    removeBtn.addEventListener('mousemove', (e) => {
+      moveUnifiedTooltip(e);
+    });
+    removeBtn.addEventListener('mouseleave', () => {
+      hideUnifiedTooltip();
     });
   }
     
@@ -1266,7 +1277,7 @@ function createOfflineStreamItem(stream, settings) {
     removeBtn = document.createElement('button');
     removeBtn.className = 'remove-btn';
     removeBtn.textContent = '×';
-    removeBtn.title = chrome.i18n.getMessage('remove');
+    removeBtn.setAttribute('aria-label', chrome.i18n.getMessage('remove'));
     removeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       
@@ -1290,6 +1301,17 @@ function createOfflineStreamItem(stream, settings) {
           }
         });
       }, null, chrome.i18n.getMessage('confirmDelete'));
+    });
+    // Unified tooltip like favorite button
+    removeBtn.addEventListener('mouseenter', (e) => {
+      const tipText = chrome.i18n.getMessage('remove') || '移除';
+      showUnifiedTooltip(e, tipText);
+    });
+    removeBtn.addEventListener('mousemove', (e) => {
+      moveUnifiedTooltip(e);
+    });
+    removeBtn.addEventListener('mouseleave', () => {
+      hideUnifiedTooltip();
     });
   }
 
