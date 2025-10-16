@@ -1085,7 +1085,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       const obj = await tracker.read([STORAGE.settings]);
       const settings = obj[STORAGE.settings] || {};
       if (settings.autoBonusEnabled === undefined) settings.autoBonusEnabled = true;
-      if (settings.chattersCountEnabled === undefined) settings.chattersCountEnabled = true;
+      if (settings.chattersCountEnabled === undefined) settings.chattersCountEnabled = false;
       if (settings.hideOffline === undefined) {
         settings.hideOffline = true;
       }
@@ -1107,7 +1107,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           next.autoBonusEnabled = true;
         }
         if (next.chattersCountEnabled === undefined) {
-          next.chattersCountEnabled = true;
+          next.chattersCountEnabled = false;
         }
         
         

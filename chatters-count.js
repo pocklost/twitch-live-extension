@@ -19,7 +19,7 @@
     try {
       chrome.storage?.local?.get(['tsn_settings'], (obj) => {
         const s = obj?.tsn_settings || {};
-        if (s.chattersCountEnabled !== false) {
+        if (s.chattersCountEnabled === true) {
           injectPageScript();
         }
       });

@@ -532,9 +532,15 @@
   "translationRefreshHint": {
     "message": "變更翻譯設定後，請重新整理 Twitch 頁面以生效。",
     "description": "Hint to refresh page after changing translation settings"
-  }
-  ,
-  
+  },
+  "showOriginalInlineLabel": {
+    "message": "直接顯示原文（取代懸停顯示）",
+    "description": "Checkbox label for showing original text inline"
+  },
+  "showOriginalInlineExample": {
+    "message": "例如：Test (測試)",
+    "description": "Tooltip example for show original inline"
+  },
   "accountCreatedAt": {
     "message": "帳號創立：$1",
     "description": "Account created at with localized date",
@@ -544,8 +550,7 @@
         "example": "2018/8/19 下午5:44:31"
       }
     }
-  }
-  ,
+  },
   "followAgeYearsDays": {
     "message": "已追蹤 $1 年 $2 天",
     "description": "Follow age with years and days",

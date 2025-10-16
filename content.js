@@ -654,7 +654,7 @@ const messageProcessor = {
     const trimmed = text.trim();
     const compact = trimmed.replace(/\s/g, '');
     const isOnlyAsciiLetters = /^[A-Za-z]+$/.test(compact);
-    const isShortAsciiWord = isOnlyAsciiLetters && compact.length < 3;
+    const isShortAsciiWord = isOnlyAsciiLetters && compact.length <= 3;
     return !( /^\d+$/.test(trimmed) ||
               /^!\S+$/.test(trimmed) ||
               isShortAsciiWord );
@@ -719,16 +719,20 @@ const messageProcessor = {
       return true;
     }
     
-    const originalClean = original.replace(/[^\w\s]/g, '').trim();
-    const translatedClean = translated.replace(/[^\w\s]/g, '').trim();
+    const originalClean = original.replace(/[\p{P}\p{S}]/gu, '').trim();
+    const translatedClean = translated.replace(/[\p{P}\p{S}]/gu, '').trim();
     
     if (originalClean === translatedClean) {
       return true;
     }
     
-    const lengthDiff = Math.abs(original.length - translated.length) / original.length;
-    if (lengthDiff < 0.1) {
-      return true;
+    const originalHasNonAscii = /[^\x00-\x7F]/.test(original);
+    const translatedHasNonAscii = /[^\x00-\x7F]/.test(translated);
+    if (!originalHasNonAscii && !translatedHasNonAscii && original.length > 0) {
+      const lengthDiff = Math.abs(original.length - translated.length) / original.length;
+      if (lengthDiff < 0.1) {
+        return true;
+      }
     }
     
     return false;

@@ -408,7 +408,7 @@ function saveSettings() {
     customPrefix: customPrefixEl ? customPrefixEl.value : '',
     useKDisplay: useKDisplayEl ? useKDisplayEl.checked : false,
     autoBonusEnabled: autoBonusEnabledEl ? autoBonusEnabledEl.checked : true,
-    chattersCountEnabled: chattersCountEnabledEl ? chattersCountEnabledEl.checked : true
+    chattersCountEnabled: chattersCountEnabledEl ? chattersCountEnabledEl.checked : false
   };
   
   viewerCountSettings.useKDisplay = settings.useKDisplay;
