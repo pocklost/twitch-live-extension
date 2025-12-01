@@ -68,6 +68,7 @@ const translatorState = {
   translatedElements: new Map(),
   maxCacheSize: 100,
   maxTranslatedElements: 50,
+  maxOriginalTexts: 100,
   cacheTTL: 600000
 };
 
@@ -1007,6 +1008,24 @@ const chatMonitor = {
             this.processNewMessage(node);
           }
         });
+
+        mutation.removedNodes.forEach((node) => {
+          if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+          const handleElement = (el) => {
+            if (!el) return;
+            if (el.matches && (el.matches('span.text-fragment') || el.matches('.translated-message'))) {
+              messageProcessor.removeTranslatedElement(el);
+            }
+          };
+
+          handleElement(node);
+
+          if (node.querySelectorAll) {
+            const spans = node.querySelectorAll('span.text-fragment, .translated-message');
+            spans.forEach((el) => handleElement(el));
+          }
+        });
       });
     });
 
@@ -1342,34 +1361,24 @@ setInterval(() => {
     }
   });
   expired.forEach(k => translatorState.cache.delete(k));
-  
-  const tooltip = document.getElementById('translation-tooltip');
-  if (tooltip) {
-    const translatedElements = document.querySelectorAll('.translated-message');
-    let shouldExist = false;
-    
-    translatedElements.forEach(element => {
-      const rect = element.getBoundingClientRect();
-      const mouseX = window.mouseX || 0;
-      const mouseY = window.mouseY || 0;
-      
-      if (mouseX >= rect.left && mouseX <= rect.right && 
-          mouseY >= rect.top && mouseY <= rect.bottom) {
-        shouldExist = true;
-      }
-    });
-    
-    if (!shouldExist) {
-      console.log('Cleaning up orphaned tooltip');
-      messageProcessor.forceHideAllTooltips();
+
+  const disconnectedElements = [];
+  translatorState.originalTexts.forEach((_, el) => {
+    if (!el || !el.isConnected) {
+      disconnectedElements.push(el);
     }
+  });
+  disconnectedElements.forEach((el) => {
+    translatorState.originalTexts.delete(el);
+    translatorState.translatedElements.delete(el);
+  });
+
+  while (translatorState.originalTexts.size > translatorState.maxOriginalTexts) {
+    const oldest = translatorState.originalTexts.keys().next().value;
+    if (!oldest) break;
+    messageProcessor.removeTranslatedElement(oldest);
   }
 }, 1000);
-
-document.addEventListener('mousemove', (e) => {
-  window.mouseX = e.clientX;
-  window.mouseY = e.clientY;
-});
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'updateTranslationSettings') {
@@ -1395,8 +1404,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         customPrefixInput.value = message.settings.customPrefix || '';
       }
       
-      messageProcessor.updateTranslationState();
-      messageProcessor.updateStatus(statusElement);
+      controlSystem.updateTranslationState();
+      controlSystem.updateStatus(statusElement);
     }
     
     sendResponse({ ok: true });
