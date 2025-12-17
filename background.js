@@ -94,6 +94,13 @@ class StreamStateManager {
     return null;
   }
 
+  async ensureAccessToken() {
+    const existing = await this.getAccessToken();
+    if (existing) return existing;
+    const fresh = await this.authorizeUser();
+    return fresh;
+  }
+
   async authorizeUser() {
     console.log('Starting OAuth authorization...');
     
@@ -171,7 +178,10 @@ class StreamStateManager {
     }
     
     try {
-      const accessToken = await this.getAccessToken();
+      const accessToken = await this.ensureAccessToken();
+      if (!accessToken) {
+        throw new Error('No access token available');
+      }
       const lower = Array.from(new Set(usernames.map((u) => u.toLowerCase())));
       
       const userIds = await this.getUserIds(lower, accessToken);
@@ -210,6 +220,12 @@ class StreamStateManager {
         
         if (!response.ok) {
           const errorText = await response.text();
+          if (response.status === 401) {
+            await this.write({
+              [STORAGE.accessToken]: null,
+              [STORAGE.tokenExpiry]: null
+            });
+          }
           console.error(`Twitch API failed for batch ${Math.floor(i / batchSize) + 1}: ${response.status} ${response.statusText}`, errorText);
           throw new Error(`Twitch API failed for batch ${Math.floor(i / batchSize) + 1}: ${response.status} - ${errorText}`);
         }
@@ -273,6 +289,12 @@ class StreamStateManager {
       });
       
       if (!response.ok) {
+        if (response.status === 401) {
+          await this.write({
+            [STORAGE.accessToken]: null,
+            [STORAGE.tokenExpiry]: null
+          });
+        }
         console.error(`User lookup failed for batch: ${response.status} ${response.statusText}`);
         throw new Error(`User lookup failed: ${response.status}`);
       }
@@ -307,6 +329,12 @@ class StreamStateManager {
       
       if (!userResponse.ok) {
         const errorText = await userResponse.text();
+        if (userResponse.status === 401) {
+          await this.write({
+            [STORAGE.accessToken]: null,
+            [STORAGE.tokenExpiry]: null
+          });
+        }
         console.error('User info error:', errorText);
         throw new Error(`Failed to get user info: ${userResponse.status} - ${errorText}`);
       }
@@ -409,6 +437,12 @@ class StreamStateManager {
       });
       
       if (!userResponse.ok) {
+        if (userResponse.status === 401) {
+          await this.write({
+            [STORAGE.accessToken]: null,
+            [STORAGE.tokenExpiry]: null
+          });
+        }
         throw new Error(`Failed to get user info: ${userResponse.status}`);
       }
       
@@ -652,12 +686,7 @@ const tracker = new StreamStateManager();
 async function handleVodRequest(msg, sendResponse) {
   console.log('VOD request received:', msg);
   try {
-    const accessToken = await tracker.getAccessToken();
-    if (!accessToken) {
-      console.log('No access token available for VOD request');
-      sendResponse({ error: 'No access token available' });
-      return;
-    }
+    const accessToken = await tracker.ensureAccessToken();
     
     console.log('Getting VODs for username:', msg.username);
     const { items, cursor } = await tracker.getChannelVods(msg.username, accessToken, msg.limit || 20, msg.after || null);
@@ -1302,11 +1331,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg?.type === 'test:autoFollow') {
       try {
         console.log('Testing auto-follow functionality...');
-        const accessToken = await tracker.getAccessToken();
-        if (!accessToken) {
-          sendResponse({ error: '需要先授權 Twitch 帳號才能使用自動抓取功能' });
-          return;
-        }
+        const accessToken = await tracker.ensureAccessToken();
         console.log('Access token obtained for test, fetching followed channels...');
         
         const followedChannels = await tracker.getFollowedChannels(accessToken);
@@ -1361,11 +1386,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     }
     if (msg?.type === 'auth:getUserInfo') {
       try {
-        const accessToken = await tracker.getAccessToken();
-        if (!accessToken) {
-          sendResponse({ error: 'No access token available' });
-          return;
-        }
+        const accessToken = await tracker.ensureAccessToken();
         
         const userResponse = await fetch(`${TWITCH_API_BASE}/users`, {
           headers: {
@@ -1375,6 +1396,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         });
         
         if (!userResponse.ok) {
+          if (userResponse.status === 401) {
+            await tracker.write({
+              [STORAGE.accessToken]: null,
+              [STORAGE.tokenExpiry]: null
+            });
+          }
           throw new Error(`Failed to get user info: ${userResponse.status}`);
         }
         
@@ -1408,11 +1435,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           sendResponse({ ok: true, users: {} });
           return;
         }
-        const accessToken = await tracker.getAccessToken();
-        if (!accessToken) {
-          sendResponse({ error: 'No access token available' });
-          return;
-        }
+        const accessToken = await tracker.ensureAccessToken();
         const batchSize = 100;
         const resultMap = {};
         for (let i = 0; i < logins.length; i += batchSize) {
@@ -1427,6 +1450,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           });
           if (!resp.ok) {
             const t = await resp.text();
+            if (resp.status === 401) {
+              await tracker.write({
+                [STORAGE.accessToken]: null,
+                [STORAGE.tokenExpiry]: null
+              });
+            }
             throw new Error(`users lookup failed: ${resp.status} ${t}`);
           }
           const data = await resp.json();
