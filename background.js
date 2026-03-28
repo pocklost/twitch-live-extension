@@ -5,8 +5,15 @@ const TWITCH_TOKEN_BASE = 'https://id.twitch.tv/oauth2/token';
 const TWITCH_CLIENT_ID = 'pujtelt7e3go829amtruwhoeido1rx';
 const REDIRECT_URI = chrome.identity ? chrome.identity.getRedirectURL() : 'https://www.twitch.tv';
 
+// Kick (client-credentials public polling)
+const KICK_PUBLIC_CHANNEL_API = 'https://api.kick.com/public/v1/channels?slug=';
+const KICK_OAUTH_TOKEN_BASE = 'https://id.kick.com/oauth/token';
+const KICK_CLIENT_ID = '01K36JDZPC2X6DM9YN8NBJDMCH';
+const KICK_CLIENT_SECRET = '1772e9969e4a9f42853975c66cb5b3c54f2aba8e2b6de2ba34179f83ff53ced5';
+
 const STORAGE = {
   channels: 'tsn_channels',
+  kickChannels: 'tsn_kick_channels',
   onlineIndex: 'tsn_online_index',
   lastNotifiedAt: 'tsn_last_notified_at',
   settings: 'tsn_settings',
@@ -17,6 +24,8 @@ const STORAGE = {
   lastStreamTimes: 'tsn_last_stream_times',
   cachedStreams: 'tsn_cached_streams',
   cachedAt: 'tsn_cached_at',
+  kickAppAccessToken: 'tsn_kick_app_access_token',
+  kickAppTokenExpiry: 'tsn_kick_app_token_expiry',
   countdownStartTime: 'tsn_countdown_start_time',
   pollInterval: 'tsn_poll_interval'
 };
@@ -38,6 +47,17 @@ class StreamStateManager {
   async setChannels(channels) {
     const list = Array.from(new Set((channels || []).map((c) => String(c).toLowerCase())));
     await this.write({ [STORAGE.channels]: list });
+    return list;
+  }
+
+  async getKickChannels() {
+    const data = await this.read([STORAGE.kickChannels]);
+    return Array.isArray(data[STORAGE.kickChannels]) ? data[STORAGE.kickChannels] : [];
+  }
+
+  async setKickChannels(channels) {
+    const list = Array.from(new Set((channels || []).map((c) => String(c).toLowerCase().trim()).filter(Boolean)));
+    await this.write({ [STORAGE.kickChannels]: list });
     return list;
   }
 
@@ -679,6 +699,91 @@ class StreamStateManager {
     currentlyLive.forEach((l) => (newIndex[l] = true));
     await this.write({ [STORAGE.onlineIndex]: newIndex, [STORAGE.lastNotifiedAt]: lastTimes });
   }
+
+  async notifyNewLivesCombined(liveMap) {
+    const settingsObj = await this.read([STORAGE.settings, STORAGE.notificationSettings]);
+    const settings = settingsObj[STORAGE.settings] || {};
+    const notificationSettings = settingsObj[STORAGE.notificationSettings] || {};
+
+    if (settings.muteNotifications) {
+      console.log('Notifications are muted');
+      return;
+    }
+
+    const { [STORAGE.onlineIndex]: prevIndex, [STORAGE.lastNotifiedAt]: lastNotifiedAt } = await this.read([
+      STORAGE.onlineIndex,
+      STORAGE.lastNotifiedAt
+    ]);
+    const previous = prevIndex || {};
+    const lastTimes = lastNotifiedAt || {};
+
+    const currentlyLiveIds = Object.keys(liveMap).filter((id) => liveMap[id] && liveMap[id].channel);
+    const twitchLiveBySlugLower = new Set();
+    currentlyLiveIds.forEach((id) => {
+      if (!id || id.startsWith('kick:')) return;
+      if (liveMap[id]?.channel) twitchLiveBySlugLower.add(String(id).toLowerCase());
+    });
+
+    for (const id of currentlyLiveIds) {
+      if (previous[id]) continue;
+
+      const s = liveMap[id];
+      if (!s?.channel) continue;
+
+      const isKick = id.startsWith('kick:');
+
+      if (isKick) {
+        const slugLower = id.slice('kick:'.length).toLowerCase();
+        const kickKey = `kick:${slugLower}`;
+        // 同名 Twitch 也正直播：只發 Twitch 通知，不發 Kick
+        if (twitchLiveBySlugLower.has(slugLower)) continue;
+
+        if (notificationSettings[kickKey] !== true) continue;
+
+        const last = lastTimes[id] || 0;
+        if (Date.now() - last <= 15 * 60 * 1000) {
+          console.log(`Rate limited for ${id}, last notification: ${new Date(last).toLocaleString()}`);
+          continue;
+        }
+
+        const gamePart = s.game ? ` — ${s.game}` : '';
+        const message = `${s.channel.status}${gamePart}`;
+        chrome.notifications.create(`kick_live_${slugLower}_${Date.now()}`, {
+          type: 'basic',
+          iconUrl: 'icons/icon128.png',
+          title: chrome.i18n.getMessage('streamStartedNotification', [s.channel.display_name]),
+          message
+        });
+        lastTimes[id] = Date.now();
+        continue;
+      }
+
+      // Twitch 通知
+      const login = id;
+      const shouldNotify = notificationSettings[login] === true;
+      if (!shouldNotify) continue;
+
+      const last = lastTimes[id] || 0;
+      if (Date.now() - last <= 15 * 60 * 1000) {
+        console.log(`Rate limited for ${id}, last notification: ${new Date(last).toLocaleString()}`);
+        continue;
+      }
+
+      const gamePart = s.game ? ` — ${s.game}` : '';
+      const message = `${s.channel.status}${gamePart}`;
+      chrome.notifications.create(`live_${id}_${Date.now()}`, {
+        type: 'basic',
+        iconUrl: 'icons/icon128.png',
+        title: chrome.i18n.getMessage('streamStartedNotification', [s.channel.display_name]),
+        message
+      });
+      lastTimes[id] = Date.now();
+    }
+
+    const newIndex = {};
+    currentlyLiveIds.forEach((l) => (newIndex[l] = true));
+    await this.write({ [STORAGE.onlineIndex]: newIndex, [STORAGE.lastNotifiedAt]: lastTimes });
+  }
 }
 
 const tracker = new StreamStateManager();
@@ -696,6 +801,172 @@ async function handleVodRequest(msg, sendResponse) {
     console.error('Error getting VODs:', e);
     sendResponse({ error: String(e?.message || e) });
   }
+}
+
+async function getKickAppAccessToken() {
+  const { [STORAGE.kickAppAccessToken]: accessToken, [STORAGE.kickAppTokenExpiry]: expiresAt } = await chrome.storage.local.get([
+    STORAGE.kickAppAccessToken,
+    STORAGE.kickAppTokenExpiry
+  ]);
+
+  if (accessToken && expiresAt && Date.now() < expiresAt) {
+    return accessToken;
+  }
+
+  const body = new URLSearchParams({
+    grant_type: 'client_credentials',
+    client_id: KICK_CLIENT_ID,
+    client_secret: KICK_CLIENT_SECRET
+  });
+
+  const response = await fetch(KICK_OAUTH_TOKEN_BASE, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept': 'application/json'
+    },
+    body
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    throw new Error(`Kick app token failed: ${response.status} - ${errorText}`);
+  }
+
+  const json = await response.json();
+  const newExpiresAt = Date.now() + (Number(json.expires_in || 0) * 1000);
+
+  await chrome.storage.local.set({
+    [STORAGE.kickAppAccessToken]: json.access_token,
+    [STORAGE.kickAppTokenExpiry]: newExpiresAt
+  });
+
+  return json.access_token;
+}
+
+function getKickStartedAt(channelInfo) {
+  const stream = channelInfo?.stream || {};
+  // Kick's payload naming can vary; keep a few fallbacks.
+  const val =
+    stream.started_at ||
+    stream.startedAt ||
+    stream.created_at ||
+    stream.started_time ||
+    channelInfo?.started_at ||
+    channelInfo?.startedAt ||
+    null;
+
+  if (typeof val === 'number' && Number.isFinite(val)) {
+    // Heuristic: treat small values as seconds.
+    const ms = val < 1e12 ? val * 1000 : val;
+    return new Date(ms).toISOString();
+  }
+
+  return val;
+}
+
+async function fetchKickPublicChannelInfo(slug) {
+  const appToken = await getKickAppAccessToken();
+  const apiUrl = `${KICK_PUBLIC_CHANNEL_API}${encodeURIComponent(slug)}`;
+
+  const response = await fetch(apiUrl, {
+    headers: {
+      Authorization: `Bearer ${appToken}`,
+      Accept: 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      await chrome.storage.local.remove([STORAGE.kickAppAccessToken, STORAGE.kickAppTokenExpiry]).catch(() => {});
+    }
+    const errorText = await response.text().catch(() => '');
+    throw new Error(`Kick public channel failed: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  return data?.data?.[0] || null;
+}
+
+/** 角標 / 統計用：同名（不分大小寫）同時開台只算 Twitch 直播一格 */
+function countDedupedLiveOnline(twitchLiveMap, kickLiveMap) {
+  const twitchLiveLogins = new Set();
+  let n = 0;
+  for (const login of Object.keys(twitchLiveMap || {})) {
+    if (twitchLiveMap[login]?.channel) {
+      twitchLiveLogins.add(String(login).toLowerCase());
+      n += 1;
+    }
+  }
+  for (const key of Object.keys(kickLiveMap || {})) {
+    if (!key.startsWith('kick:')) continue;
+    if (!kickLiveMap[key]?.channel) continue;
+    const slug = key.slice('kick:'.length).toLowerCase();
+    if (twitchLiveLogins.has(slug)) continue;
+    n += 1;
+  }
+  return n;
+}
+
+async function fetchKickStatuses(slugs, { concurrency = 8 } = {}) {
+  const unique = Array.from(new Set((slugs || []).map((s) => String(s).toLowerCase().trim()).filter(Boolean)));
+  const result = {};
+  unique.forEach((slug) => {
+    result[`kick:${slug}`] = undefined;
+  });
+
+  for (let i = 0; i < unique.length; i += concurrency) {
+    const batch = unique.slice(i, i + concurrency);
+    const infos = await Promise.all(
+      batch.map((slug) =>
+        fetchKickPublicChannelInfo(slug)
+          .then((info) => ({ slug, info }))
+          .catch(() => ({ slug, info: null }))
+      )
+    );
+
+    infos.forEach(({ slug, info }) => {
+      const isLive = info?.stream?.is_live === true || info?.stream?.isLive === true;
+      if (!info || !isLive) return;
+
+      const stream = info.stream || {};
+      const channel = {
+        display_name: info.slug || slug,
+        status: info.stream_title || stream.title || info.title || '',
+        profile_image_url:
+          info.profile_image_url ||
+          stream.profile_image_url ||
+          info?.user?.profile_image_url ||
+          stream?.user?.profile_image_url ||
+          null,
+        // Kick 直播封面/縮圖：Kick 的欄位命名可能會變動，盡量用多種常見欄位嘗試。
+        thumbnail_url:
+          info.thumbnail_url ||
+          info.thumbnailUrl ||
+          stream.thumbnail_url ||
+          stream.thumbnailUrl ||
+          stream.thumbnail ||
+          stream.cover_url ||
+          stream.coverUrl ||
+          stream.preview_url ||
+          stream.previewUrl ||
+          stream.image_url ||
+          stream.imageUrl ||
+          null
+      };
+
+      result[`kick:${slug}`] = {
+        platform: 'kick',
+        username: slug,
+        channel,
+        game: info.category?.name || info.category_name || '',
+        viewers: stream.viewer_count || stream.viewers || 0,
+        created_at: getKickStartedAt(info) || new Date().toISOString()
+      };
+    });
+  }
+
+  return result;
 }
 
 async function performPollAndBroadcast() {
@@ -775,11 +1046,39 @@ async function performPollAndBroadcast() {
     console.log('Auto-follow is disabled');
   }
   
-  let liveMap = {};
-  
+  // Kick channels are stored separately from Twitch.
+  const kickStored = await chrome.storage.local.get([STORAGE.kickChannels]);
+  const kickChannelsAll = Array.isArray(kickStored[STORAGE.kickChannels]) ? kickStored[STORAGE.kickChannels] : [];
+
+  // 兼容舊版 Kick 設定：若 notificationSettings 中缺少 kick:${slug}，預設補上 true
+  // 以避免升級後 Kick 通知完全失效。
   try {
-    liveMap = await tracker.fetchStatuses(channels);
-    console.log('Background poll: live statuses:', liveMap);
+    const notificationData = await tracker.read([STORAGE.notificationSettings]);
+    const existingNotificationSettings = notificationData[STORAGE.notificationSettings] || {};
+    let updated = false;
+    const nextNotificationSettings = { ...existingNotificationSettings };
+    (kickChannelsAll || []).forEach((slug) => {
+      const s = String(slug).toLowerCase();
+      if (!s) return;
+      const key = `kick:${s}`;
+      if (nextNotificationSettings[key] === undefined) {
+        nextNotificationSettings[key] = true;
+        updated = true;
+      }
+    });
+    if (updated) {
+      await tracker.write({ [STORAGE.notificationSettings]: nextNotificationSettings });
+    }
+  } catch (_) {}
+  // 實況列表：popup 會依同名（不分大小寫）去重，有 Twitch 只顯示 Twitch。
+  // 通知：同名同時開台只走 Twitch，見 notifyNewLivesCombined。
+  const kickChannelsForUI = kickChannelsAll;
+  const kickChannelsForNotifications = kickChannelsAll;
+
+  let twitchLiveMap = {};
+  try {
+    twitchLiveMap = await tracker.fetchStatuses(channels);
+    console.log('Background poll: twitch live statuses:', twitchLiveMap);
   } catch (e) {
     console.error('poll_error', e?.message || e);
     chrome.action.setBadgeText({ text: '!' });
@@ -787,26 +1086,62 @@ async function performPollAndBroadcast() {
     return;
   }
 
-  const onlineCount = Object.keys(liveMap).filter(login => liveMap[login] && liveMap[login].channel).length;
-  console.log('Background poll: online count:', onlineCount);
-  console.log('Live streams found:', Object.keys(liveMap).filter(login => liveMap[login] && liveMap[login].channel));
-  console.log('Total channels being checked:', channels.length);
-  console.log('LiveMap details:', liveMap);
+  let kickLiveMapForUI = {};
+  try {
+    kickLiveMapForUI = kickChannelsForUI.length > 0 ? await fetchKickStatuses(kickChannelsForUI) : {};
+    console.log('Background poll: kick live statuses (UI):', kickLiveMapForUI);
+  } catch (e) {
+    console.error('kick_poll_error', e?.message || e);
+  }
+
+  let kickLiveMapForNotifications = {};
+  try {
+    kickLiveMapForNotifications =
+      kickChannelsForNotifications.length > 0
+        ? await fetchKickStatuses(kickChannelsForNotifications)
+        : {};
+    console.log('Background poll: kick live statuses (notify):', kickLiveMapForNotifications);
+  } catch (e) {
+    console.error('kick_notify_poll_error', e?.message || e);
+  }
+
+  const liveMapCombinedForUI = { ...twitchLiveMap, ...kickLiveMapForUI };
+  const liveMapCombinedForNotifications = { ...twitchLiveMap, ...kickLiveMapForNotifications };
+
+  const onlineCount = countDedupedLiveOnline(twitchLiveMap, kickLiveMapForUI);
+  console.log('Background poll: combined online count:', onlineCount);
+  console.log('Total channels being checked (twitch + kick(UI)):', (channels || []).length + (kickChannelsForUI || []).length);
   
   await tracker.updateBadge(onlineCount);
-  await tracker.notifyNewLives(liveMap);
+  await tracker.notifyNewLivesCombined(liveMapCombinedForNotifications);
 
   const lastStreamTimes = await tracker.getLastStreamTimes();
-  const payload = (channelsData.length ? channelsData : channels.map(u => ({ username: u }))).map((channelData) => {
+  const twitchPayloadBase = (channelsData.length ? channelsData : channels.map((u) => ({ username: u })));
+  const twitchPayload = twitchPayloadBase.map((channelData) => {
     const username = typeof channelData === 'string' ? channelData : channelData.username;
-    const liveData = liveMap[username] || { username };
+    const liveData = twitchLiveMap[username] || { username };
     return {
       ...liveData,
+      platform: 'twitch',
       followedAt: typeof channelData === 'object' ? channelData.followedAt : null,
       displayName: typeof channelData === 'object' ? channelData.displayName : username,
       lastStreamTime: lastStreamTimes[username] || null
     };
   });
+
+  const kickPayload = kickChannelsForUI.map((slug) => {
+    const key = `kick:${slug}`;
+    const liveData = kickLiveMapForUI[key] || { username: slug };
+    return {
+      ...liveData,
+      platform: 'kick',
+      followedAt: null,
+      displayName: slug,
+      lastStreamTime: null
+    };
+  });
+
+  const payload = [...twitchPayload, ...kickPayload];
   
   await tracker.write({
     [STORAGE.cachedStreams]: payload,
@@ -838,10 +1173,13 @@ chrome.runtime.onInstalled.addListener(async () => {
   console.log('Created polling alarm with period:', period, 'minutes');
   
   await tracker.startCountdown(period);
-  
-  const channels = await tracker.getChannels();
-  if (channels && channels.length > 0) {
-    console.log('Performing immediate poll with channels:', channels);
+
+  const twitchChannels = await tracker.getChannels();
+  const kickData = await chrome.storage.local.get([STORAGE.kickChannels]);
+  const kickChannels = Array.isArray(kickData[STORAGE.kickChannels]) ? kickData[STORAGE.kickChannels] : [];
+
+  if ((twitchChannels && twitchChannels.length > 0) || (kickChannels && kickChannels.length > 0)) {
+    console.log('Performing immediate poll with channels:', { twitch: twitchChannels, kick: kickChannels });
     setTimeout(() => {
       performPollAndBroadcast();
     }, 1000);
@@ -863,9 +1201,11 @@ chrome.runtime.onStartup.addListener(async () => {
   console.log('Created startup polling alarm with period:', period, 'minutes');
   
   await tracker.startCountdown(period);
-  
-  const channels = await tracker.getChannels();
-  console.log('Startup: channels found:', channels);
+
+  const twitchChannels = await tracker.getChannels();
+  const kickData = await chrome.storage.local.get([STORAGE.kickChannels]);
+  const kickChannels = Array.isArray(kickData[STORAGE.kickChannels]) ? kickData[STORAGE.kickChannels] : [];
+  console.log('Startup: channels found:', { twitch: twitchChannels, kick: kickChannels });
   
   setTimeout(() => {
     console.log('Performing immediate startup poll...');
@@ -875,23 +1215,26 @@ chrome.runtime.onStartup.addListener(async () => {
 
 chrome.notifications.onClicked.addListener((notificationId) => {
   console.log('Notification clicked:', notificationId);
-  
-  let channelName = null;
-  if (notificationId.startsWith('live_')) {
+
+  let url = null;
+
+  if (notificationId.startsWith('kick_live_') || notificationId.startsWith('kick_immediate_')) {
     const parts = notificationId.split('_');
-    if (parts.length >= 2) {
-      channelName = parts[1];
+    // kick_live_<slug>_<timestamp> => parts[2] = slug
+    if (parts.length >= 3) {
+      const slug = parts[2];
+      url = `https://kick.com/${slug}`;
     }
-  } else if (notificationId.startsWith('immediate_')) {
+  } else if (notificationId.startsWith('live_') || notificationId.startsWith('immediate_')) {
     const parts = notificationId.split('_');
     if (parts.length >= 2) {
-      channelName = parts[1];
+      const channelName = parts[1];
+      url = `https://www.twitch.tv/${channelName}`;
     }
   }
-  
-  if (channelName) {
-    const url = `https://www.twitch.tv/${channelName}`;
-    console.log('Opening Twitch channel:', url);
+
+  if (url) {
+    console.log('Opening notification URL:', url);
     chrome.tabs.create({ url });
   }
 });
@@ -908,7 +1251,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         const isStale = Date.now() - cachedAt > maxAgeMs;
 
         let storedChannels = await tracker.getChannels();
-        if (!Array.isArray(storedChannels) || storedChannels.length === 0) {
+        const kickData = await chrome.storage.local.get([STORAGE.kickChannels]);
+        const storedKickChannels = Array.isArray(kickData[STORAGE.kickChannels]) ? kickData[STORAGE.kickChannels] : [];
+        const hasTwitchChannels = Array.isArray(storedChannels) && storedChannels.length > 0;
+        const hasKickChannels = Array.isArray(storedKickChannels) && storedKickChannels.length > 0;
+        if (!hasTwitchChannels && !hasKickChannels) {
           if (payload.length > 0) {
             payload = [];
             await tracker.write({ [STORAGE.cachedStreams]: [], [STORAGE.cachedAt]: Date.now() });
@@ -917,19 +1264,44 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           return;
         }
 
+        // 僅剩 Kick、無 Twitch 時，舊邏輯需 hasTwitchChannels 才會從 API 補列表，cached 會一直為空。
+        if (payload.length === 0 && hasKickChannels && !hasTwitchChannels) {
+          payload = storedKickChannels.map((slug) => ({
+            username: slug,
+            platform: 'kick',
+            channel: undefined,
+            displayName: slug,
+            followedAt: null,
+            lastStreamTime: null
+          }));
+          await tracker.write({ [STORAGE.cachedStreams]: payload, [STORAGE.cachedAt]: Date.now() });
+        }
+
         const token = cached[STORAGE.accessToken];
         const expiry = cached[STORAGE.tokenExpiry];
         const hasValidToken = token && expiry && Date.now() < expiry;
-        const needsEnrich = payload.some(item => !item?.displayName || !item?.followedAt);
+        const isTwitchItem = (item) => !item?.platform || item.platform === 'twitch';
+        const needsEnrich = payload.some(item => isTwitchItem(item) && (!item?.displayName || !item?.followedAt));
 
-        if (hasValidToken && (payload.length === 0 || needsEnrich)) {
+        if (hasValidToken && hasTwitchChannels && (payload.length === 0 || needsEnrich)) {
           try {
             const followed = await tracker.getFollowedChannels(token);
             const map = new Map(followed.map(c => [String(c.username).toLowerCase(), c]));
             if (payload.length === 0) {
               payload = followed.map(c => ({ username: c.username, channel: undefined, displayName: c.displayName, followedAt: c.followedAt, lastStreamTime: null }));
+              if (hasKickChannels) {
+                payload = payload.concat(storedKickChannels.map((slug) => ({
+                  username: slug,
+                  platform: 'kick',
+                  channel: undefined,
+                  displayName: slug,
+                  followedAt: null,
+                  lastStreamTime: null
+                })));
+              }
             } else {
               payload = payload.map(item => {
+                if (!isTwitchItem(item)) return item;
                 const login = String(item?.username || '').toLowerCase();
                 const info = map.get(login);
                 if (!info) return item;
@@ -941,7 +1313,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
               });
             }
             const missingNameLogins = payload
-              .filter(p => !p.displayName || p.displayName.toLowerCase() === String(p.username || '').toLowerCase())
+              .filter(p => isTwitchItem(p) && (!p.displayName || p.displayName.toLowerCase() === String(p.username || '').toLowerCase()))
               .map(p => String(p.username || '').toLowerCase());
             if (missingNameLogins.length > 0) {
               const batchSize = 100;
@@ -1082,15 +1454,57 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           sendResponse({ isLive: false, muted: true });
           return;
         }
-        
-        const liveMap = await tracker.fetchStatuses([msg.channelId]);
-        const isLive = liveMap[msg.channelId] && liveMap[msg.channelId].channel;
+
+        const channelId = String(msg.channelId || '');
+
+        // ---- Kick immediate ----
+        if (channelId.startsWith('kick:')) {
+          const slugLower = channelId.slice('kick:'.length).toLowerCase();
+          const kickId = `kick:${slugLower}`;
+
+          const liveKickMap = await fetchKickStatuses([slugLower]);
+          const isKickLive = liveKickMap[kickId] && liveKickMap[kickId].channel;
+
+          if (isKickLive) {
+            let isTwitchLive = false;
+            try {
+              const liveTwitchMap = await tracker.fetchStatuses([slugLower]);
+              isTwitchLive = !!(liveTwitchMap[slugLower] && liveTwitchMap[slugLower].channel);
+            } catch (_) {}
+
+            // 同名 Twitch 也正直播：不發 Kick 立即通知（只走 Twitch 通知）
+            if (!isTwitchLive) {
+              const kickStream = liveKickMap[kickId];
+              const kickGamePart = kickStream?.game ? ` — ${kickStream.game}` : '';
+              const kickMessage = `${kickStream.channel.status}${kickGamePart}`;
+
+              chrome.notifications.create(`kick_immediate_${slugLower}_${Date.now()}`, {
+                type: 'basic',
+                iconUrl: 'icons/icon128.png',
+                title: chrome.i18n.getMessage('streamLiveNotification', [kickStream.channel.display_name || slugLower]),
+                message: kickMessage
+              });
+
+              const lastTimes = await tracker.read([STORAGE.lastNotifiedAt]);
+              const updatedLastTimes = lastTimes[STORAGE.lastNotifiedAt] || {};
+              updatedLastTimes[kickId] = Date.now();
+              await tracker.write({ [STORAGE.lastNotifiedAt]: updatedLastTimes });
+            }
+          }
+
+          sendResponse({ isLive: isKickLive });
+          return;
+        }
+
+        // ---- Twitch immediate (existing) ----
+        const liveMap = await tracker.fetchStatuses([channelId]);
+        const isLive = liveMap[channelId] && liveMap[channelId].channel;
         
         if (isLive) {
-          const stream = liveMap[msg.channelId];
-          console.log(`Sending immediate notification for ${msg.channelId}: ${stream.channel.display_name}`);
+          const stream = liveMap[channelId];
+          console.log(`Sending immediate notification for ${channelId}: ${stream.channel.display_name}`);
           
-          chrome.notifications.create(`immediate_${msg.channelId}_${Date.now()}`, {
+          chrome.notifications.create(`immediate_${channelId}_${Date.now()}`, {
             type: 'basic',
             iconUrl: 'icons/icon128.png',
             title: chrome.i18n.getMessage('streamLiveNotification', [stream.channel.display_name]),
@@ -1099,7 +1513,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           
           const lastTimes = await tracker.read([STORAGE.lastNotifiedAt]);
           const updatedLastTimes = lastTimes[STORAGE.lastNotifiedAt] || {};
-          updatedLastTimes[msg.channelId] = Date.now();
+          updatedLastTimes[channelId] = Date.now();
           await tracker.write({ [STORAGE.lastNotifiedAt]: updatedLastTimes });
         }
         
@@ -1166,6 +1580,129 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       }
       return;
     }
+
+    // ---------------- Kick channel management ----------------
+    if (msg?.type === 'kick:channels:list') {
+      try {
+        const channels = await tracker.getKickChannels();
+        sendResponse({ channels });
+      } catch (e) {
+        sendResponse({ error: String(e?.message || e) });
+      }
+      return;
+    }
+
+    if (msg?.type === 'kick:channels:add') {
+      try {
+        const raw = Array.isArray(msg.slugs) ? msg.slugs : [];
+        const normalized = Array.from(
+          new Set(
+            raw
+              .map((s) => String(s).toLowerCase().trim())
+              .filter(Boolean)
+          )
+        );
+        const current = await tracker.getKickChannels();
+        const actuallyNew = normalized.filter((s) => !current.includes(s));
+        const next = await tracker.setKickChannels([...current, ...normalized]);
+
+        // 新增 Kick 頻道：若通知設定尚不存在，預設開啟開台通知。
+        if (actuallyNew.length > 0) {
+          const notificationData = await tracker.read([STORAGE.notificationSettings]);
+          const existingNotificationSettings = notificationData[STORAGE.notificationSettings] || {};
+          const updatedNotificationSettings = { ...existingNotificationSettings };
+          actuallyNew.forEach((slug) => {
+            const key = `kick:${slug}`;
+            if (updatedNotificationSettings[key] === undefined) {
+              updatedNotificationSettings[key] = true;
+            }
+          });
+          await tracker.write({ [STORAGE.notificationSettings]: updatedNotificationSettings });
+        }
+
+        sendResponse({ ok: true, channels: next });
+        await tracker.write({ [STORAGE.cachedAt]: 0 });
+        setTimeout(() => {
+          performPollAndBroadcast();
+        }, 500);
+      } catch (e) {
+        sendResponse({ error: String(e?.message || e) });
+      }
+      return;
+    }
+
+    if (msg?.type === 'kick:channels:remove') {
+      try {
+        const slug = String(msg.slug || '').toLowerCase().trim();
+        if (!slug) {
+          sendResponse({ error: 'Missing kick channel slug' });
+          return;
+        }
+
+        const current = await tracker.getKickChannels();
+        const next = current.filter((c) => c !== slug);
+        await tracker.setKickChannels(next);
+
+        // 移除 Kick 通知設定
+        const notificationData = await tracker.read([STORAGE.notificationSettings]);
+        const existingNotificationSettings = notificationData[STORAGE.notificationSettings] || {};
+        const key = `kick:${slug}`;
+        if (existingNotificationSettings[key] !== undefined) {
+          delete existingNotificationSettings[key];
+          await tracker.write({ [STORAGE.notificationSettings]: existingNotificationSettings });
+        }
+
+        // Optimistic UI update from cache.
+        const cache = await tracker.read([STORAGE.cachedStreams]);
+        const cachedPayload = Array.isArray(cache[STORAGE.cachedStreams]) ? cache[STORAGE.cachedStreams] : [];
+        const filtered = cachedPayload.filter(
+          (item) => !((item?.platform === 'kick') && String(item?.username || '').toLowerCase() === slug)
+        );
+        await tracker.write({ [STORAGE.cachedStreams]: filtered, [STORAGE.cachedAt]: Date.now() });
+        try { chrome.runtime.sendMessage({ type: 'streams:update', payload: filtered }); } catch (_) {}
+
+        sendResponse({ ok: true, channels: next });
+        await tracker.write({ [STORAGE.cachedAt]: 0 });
+        setTimeout(() => {
+          performPollAndBroadcast();
+        }, 500);
+      } catch (e) {
+        sendResponse({ error: String(e?.message || e) });
+      }
+      return;
+    }
+
+    if (msg?.type === 'kick:channels:deleteAll') {
+      try {
+        await tracker.setKickChannels([]);
+
+        // 移除所有 Kick 通知設定
+        const notificationData = await tracker.read([STORAGE.notificationSettings]);
+        const existingNotificationSettings = notificationData[STORAGE.notificationSettings] || {};
+        const updatedNotificationSettings = { ...existingNotificationSettings };
+        Object.keys(updatedNotificationSettings).forEach((k) => {
+          if (String(k).startsWith('kick:')) delete updatedNotificationSettings[k];
+        });
+        await tracker.write({ [STORAGE.notificationSettings]: updatedNotificationSettings });
+
+        const cache = await tracker.read([STORAGE.cachedStreams]);
+        const cachedPayload = Array.isArray(cache[STORAGE.cachedStreams]) ? cache[STORAGE.cachedStreams] : [];
+        const filtered = cachedPayload.filter((item) => item?.platform !== 'kick');
+        await tracker.write({ [STORAGE.cachedStreams]: filtered, [STORAGE.cachedAt]: Date.now() });
+
+        try { chrome.runtime.sendMessage({ type: 'streams:update', payload: filtered }); } catch (_) {}
+
+        sendResponse({ ok: true, channels: [] });
+        await tracker.write({ [STORAGE.cachedAt]: 0 });
+        setTimeout(() => {
+          performPollAndBroadcast();
+        }, 500);
+      } catch (e) {
+        sendResponse({ error: String(e?.message || e) });
+      }
+      return;
+    }
+
     if (msg?.type === 'streams:add') {
       const settingsObj = await tracker.read([STORAGE.settings]);
       const settings = settingsObj[STORAGE.settings] || {};
@@ -1314,18 +1851,48 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return;
       }
       
+      const kickData = await chrome.storage.local.get([STORAGE.kickChannels]);
+      const kickSlugs = Array.isArray(kickData[STORAGE.kickChannels]) ? kickData[STORAGE.kickChannels] : [];
+      const prevNotifData = await tracker.read([STORAGE.notificationSettings]);
+      const prevNotif = prevNotifData[STORAGE.notificationSettings] || {};
+      const kickNotificationSettings = {};
+      kickSlugs.forEach((slug) => {
+        const s = String(slug).toLowerCase();
+        const key = `kick:${s}`;
+        kickNotificationSettings[key] = prevNotif[key] !== undefined ? prevNotif[key] : true;
+      });
+
+      const kickOnlyPayload =
+        kickSlugs.length > 0
+          ? kickSlugs.map((slug) => ({
+              username: slug,
+              platform: 'kick',
+              channel: undefined,
+              displayName: slug,
+              followedAt: null,
+              lastStreamTime: null
+            }))
+          : [];
+
       await tracker.setChannels([]);
-      await tracker.write({ 
-        [STORAGE.notificationSettings]: {},
+      await tracker.write({
+        [STORAGE.notificationSettings]: kickNotificationSettings,
         [STORAGE.followDates]: {},
         [STORAGE.lastStreamTimes]: {},
-        [STORAGE.cachedStreams]: [],
+        [STORAGE.cachedStreams]: kickOnlyPayload,
         [STORAGE.cachedAt]: Date.now()
       });
       try { await chrome.storage.local.set({ tsn_user_desc_cache: {} }); } catch (_) {}
       sendResponse({ ok: true, channels: [] });
       await tracker.updateBadge(0);
-      try { chrome.runtime.sendMessage({ type: 'streams:update', payload: [] }); } catch (_) {}
+      try {
+        chrome.runtime.sendMessage({ type: 'streams:update', payload: kickOnlyPayload });
+      } catch (_) {}
+      if (kickSlugs.length > 0) {
+        setTimeout(() => {
+          performPollAndBroadcast();
+        }, 0);
+      }
       return;
     }
     if (msg?.type === 'test:autoFollow') {
@@ -1487,6 +2054,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         const allData = await tracker.read([
           STORAGE.settings,
           STORAGE.channels,
+          STORAGE.kickChannels,
           STORAGE.notificationSettings,
           STORAGE.followDates
         ]);
@@ -1508,6 +2076,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           timestamp: localTimestamp,
           settings: allData[STORAGE.settings] || {},
           channels: allData[STORAGE.channels] || [],
+          kickChannels: allData[STORAGE.kickChannels] || [],
           notificationSettings: allData[STORAGE.notificationSettings] || {},
           followDates: allData[STORAGE.followDates] || {},
           tsn_favorites: localData.tsn_favorites || {}
@@ -1545,6 +2114,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         
         if (importData.channels) {
           importPromises.push(tracker.write({ [STORAGE.channels]: importData.channels }));
+        }
+
+        if (importData.kickChannels) {
+          importPromises.push(tracker.write({ [STORAGE.kickChannels]: importData.kickChannels }));
         }
         
         if (importData.notificationSettings) {

@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "Twitch 라이브 알림 | 채팅 번역",
+    "message": "Twitch (Kick) 라이브 알림 | 채팅 번역",
     "description": "Extension name"
   },
   "extensionDescription": {
-    "message": "선택한 Twitch 스트리머의 라이브 시작을 알리고 팝업에 방송 정보를 표시. 채팅 번역 및 다국어 지원 포함.",
+    "message": "선택한 Twitch (Kick) 스트리머의 라이브 시작을 알리고 팝업에 방송 정보를 표시. 채팅 번역 및 다국어 지원 포함.",
     "description": "Extension description"
   },
   "extensionTitle": {
@@ -90,6 +90,34 @@
   "channelInputHelp": {
     "message": "스트리머의 Twitch ID 또는 URL을 입력하세요 (예: kaicenat, https://www.twitch.tv/kaicenat)",
     "description": "Channel input help text"
+  },
+  "kickStreamerManagement": {
+    "message": "Kick 채널 관리",
+    "description": "Kick channel management section title"
+  },
+  "kickChannelInputPlaceholder": {
+    "message": "Kick 채널 이름 또는 URL 입력, 여러 개는 쉼표로 구분",
+    "description": "Kick channel input placeholder"
+  },
+  "kickChannelInputHelp": {
+    "message": "스트리머의 Kick ID 또는 URL을 입력하세요 (예: kaicenat, https://kick.com/joeykaotyk)",
+    "description": "Kick channel input help text"
+  },
+  "kickNotificationSettingsLabel": {
+    "message": "Kick 방송 알림",
+    "description": "Kick notification settings label"
+  },
+  "deleteAllKickChannels": {
+    "message": "모든 Kick 채널 삭제",
+    "description": "Delete all Kick channels button"
+  },
+  "deleteAllKickChannelsConfirm": {
+    "message": "모든 Kick 채널을 삭제하시겠습니까?<br>이 작업은 되돌릴 수 없습니다.",
+    "description": "Delete all Kick channels confirmation message"
+  },
+  "allKickChannelsDeleted": {
+    "message": "모든 Kick 채널이 삭제되었습니다",
+    "description": "All Kick channels deleted success message"
   },
   "twitchAuth": {
     "message": "Twitch 인증",
@@ -406,6 +434,10 @@
         "example": "kaicenat"
       }
     }
+  },
+  "multiPlatformLiveNotificationTitle": {
+    "message": "$1 멀티 플랫폼 동시 방송 알림",
+    "description": "Multi platform live notification title"
   },
   "testNotificationTitle": {
     "message": "테스트 알림",

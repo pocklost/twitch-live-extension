@@ -1,6 +1,6 @@
 {
   "extensionName": {
-    "message": "Twitch Live Notifier | Chat Translation",
+    "message": "Twitch (Kick) Live Notifier | Chat Translation",
     "description": "Extension name"
   },
   "extensionDescription": {
@@ -90,6 +90,34 @@
   "channelInputHelp": {
     "message": "Enter the Twitch ID or URL of the streamer (e.g., kaicenat, https://www.twitch.tv/kaicenat)",
     "description": "Channel input help text"
+  },
+  "kickStreamerManagement": {
+    "message": "Kick Channel Management",
+    "description": "Kick channel management section title"
+  },
+  "kickChannelInputPlaceholder": {
+    "message": "Enter Kick channel slug or URL, separate multiple with commas",
+    "description": "Kick channel input placeholder"
+  },
+  "kickChannelInputHelp": {
+    "message": "Enter the Kick channel slug or URL (e.g., kaicenat, https://kick.com/joeykaotyk)",
+    "description": "Kick channel input help text"
+  },
+  "kickNotificationSettingsLabel": {
+    "message": "Kick live notifications",
+    "description": "Kick notification settings label"
+  },
+  "deleteAllKickChannels": {
+    "message": "Delete all Kick channels",
+    "description": "Delete all Kick channels button"
+  },
+  "deleteAllKickChannelsConfirm": {
+    "message": "Are you sure you want to delete all Kick channels?<br>This cannot be undone.",
+    "description": "Delete all Kick channels confirmation message"
+  },
+  "allKickChannelsDeleted": {
+    "message": "All Kick channels deleted",
+    "description": "All Kick channels deleted success message"
   },
   "twitchAuth": {
     "message": "Twitch Authorization",
@@ -406,6 +434,10 @@
         "example": "kaicenat"
       }
     }
+  },
+  "multiPlatformLiveNotificationTitle": {
+    "message": "$1 live on multiple platforms",
+    "description": "Multi platform live notification title"
   },
   "testNotificationTitle": {
     "message": "Test Notification",

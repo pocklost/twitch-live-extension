@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "Twitch ライブ通知 | チャット翻訳",
+    "message": "Twitch (Kick) ライブ通知 | チャット翻訳",
     "description": "Extension name"
   },
   "extensionDescription": {
-    "message": "選択した Twitch ストリーマーのライブ開始を通知し、ポップアップに配信情報を表示。チャット翻訳と多言語対応を含みます。",
+    "message": "選択した Twitch (Kick) ストリーマーのライブ開始を通知し、ポップアップに配信情報を表示。チャット翻訳と多言語対応を含みます。",
     "description": "Extension description"
   },
   "extensionTitle": {
@@ -90,6 +90,34 @@
   "channelInputHelp": {
     "message": "ストリーマーの Twitch ID または URL を入力（例：kaicenat, https://www.twitch.tv/kaicenat）",
     "description": "Channel input help text"
+  },
+  "kickStreamerManagement": {
+    "message": "Kick チャンネル管理",
+    "description": "Kick channel management section title"
+  },
+  "kickChannelInputPlaceholder": {
+    "message": "Kick チャンネル名またはURLを入力、複数はカンマで区切り",
+    "description": "Kick channel input placeholder"
+  },
+  "kickChannelInputHelp": {
+    "message": "配信者の Kick ID または URL を入力（例：kaicenat, https://kick.com/joeykaotyk）",
+    "description": "Kick channel input help text"
+  },
+  "kickNotificationSettingsLabel": {
+    "message": "Kick 配信通知",
+    "description": "Kick notification settings label"
+  },
+  "deleteAllKickChannels": {
+    "message": "すべての Kick チャンネルを削除",
+    "description": "Delete all Kick channels button"
+  },
+  "deleteAllKickChannelsConfirm": {
+    "message": "すべての Kick チャンネルを削除しますか？<br>この操作は元に戻せません。",
+    "description": "Delete all Kick channels confirmation message"
+  },
+  "allKickChannelsDeleted": {
+    "message": "すべての Kick チャンネルを削除しました",
+    "description": "All Kick channels deleted success message"
   },
   "twitchAuth": {
     "message": "Twitch 認証",
@@ -407,6 +435,10 @@
         "example": "kaicenat"
       }
     }
+  },
+  "multiPlatformLiveNotificationTitle": {
+    "message": "$1 が複数プラットフォームで同時配信中",
+    "description": "Multi platform live notification title"
   },
   "testNotificationTitle": {
     "message": "テスト通知",

@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "Twitch 實況通知器 | 聊天室翻譯",
+    "message": "Twitch (Kick) 實況通知器 | 聊天室翻譯",
     "description": "Extension name"
   },
   "extensionDescription": {
-    "message": "當選定的 Twitch 實況主開台時通知，並在彈出視窗中顯示實況資訊。包含聊天室翻譯與多語言支援。",
+    "message": "當選定的 Twitch (Kick) 實況主開台時通知，並在彈出視窗中顯示實況資訊。包含聊天室翻譯與多語言支援。",
     "description": "Extension description"
   },
   "extensionTitle": {
@@ -90,6 +90,34 @@
   "channelInputHelp": {
     "message": "輸入實況主的 Twitch ID 或 網址（例如：kaicenat, https://www.twitch.tv/kaicenat）",
     "description": "Channel input help text"
+  },
+  "kickStreamerManagement": {
+    "message": "Kick 頻道管理",
+    "description": "Kick 頻道管理區塊標題"
+  },
+  "kickChannelInputPlaceholder": {
+    "message": "輸入 Kick 頻道名稱或網址，多個用逗號分隔",
+    "description": "Kick 頻道輸入框提示文字"
+  },
+  "kickChannelInputHelp": {
+    "message": "輸入實況主的 Kick ID 或網址（例如：kaicenat, https://kick.com/joeykaotyk）",
+    "description": "Kick 頻道輸入說明文字"
+  },
+  "kickNotificationSettingsLabel": {
+    "message": "Kick 開台通知",
+    "description": "Kick notification settings label"
+  },
+  "deleteAllKickChannels": {
+    "message": "刪除所有 Kick 頻道",
+    "description": "刪除所有 Kick 頻道按鈕"
+  },
+  "deleteAllKickChannelsConfirm": {
+    "message": "確定要刪除所有 Kick 頻道嗎？<br>此操作無法復原。",
+    "description": "刪除所有 Kick 頻道確認訊息"
+  },
+  "allKickChannelsDeleted": {
+    "message": "已刪除所有 Kick 頻道",
+    "description": "刪除所有 Kick 頻道成功訊息"
   },
   "twitchAuth": {
     "message": "Twitch 授權",
@@ -466,6 +494,10 @@
         "example": "kaicenat"
       }
     }
+  },
+  "multiPlatformLiveNotificationTitle": {
+    "message": "$1 同時多平台開台通知",
+    "description": "Multi platform live notification title"
   },
   "testNotificationTitle": {
     "message": "測試通知",

@@ -1873,6 +1873,38 @@
                   </div>
                 </div>
 
+          <div class="settings-section" id="kickChannelSection" style="display: block;">
+            <div class="section-divider"></div>
+            <h3 class="section-title"><span aria-hidden="true" style="display:inline-flex;align-items:center;gap:6px;vertical-align:middle;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 12h-6l-2-2-2 2H2"/>
+                <path d="M9 18h6"/>
+                <path d="M4 4h16v16H4z"/>
+              </svg>
+            </span> <span data-i18n="kickStreamerManagement">Kick Channel Management</span></h3>
+            <div class="input-group">
+              <input
+                type="text"
+                class="text-input"
+                id="kickChannelInput"
+                placeholder="Enter Kick login name or URL, separate multiple with commas"
+                data-i18n-placeholder="kickChannelInputPlaceholder"
+              />
+              <button class="btn-primary" id="addKickChannel" data-i18n="add">Add</button>
+            </div>
+            <div class="help-text">
+              <span data-i18n="kickChannelInputHelp">Enter the Kick channel slug or URL (e.g., kaicenat, https://kick.com/kaicenat)</span>
+            </div>
+            <div class="tags" id="kickChips"></div>
+            <div style="margin-top: 12px; font-size: 12px; color: var(--text-secondary);" data-i18n="kickNotificationSettingsLabel">
+              Kick Live Notifications
+            </div>
+            <div id="kickNotificationChannels" style="margin-top: 6px;"></div>
+            <div class="input-group" style="margin-top: 16px;">
+              <button class="btn-primary" id="deleteAllKickChannels" data-i18n="deleteAllKickChannels" style="background: #ef4444; border-color: #ef4444;">Delete All Kick Channels</button>
+            </div>
+          </div>
+
                 <div class="settings-section" id="autoTrackingSection" style="display: none;">
                   <div class="section-divider"></div>
                   <h3 class="section-title"><span aria-hidden="true" style="display:inline-flex;align-items:center;gap:6px;vertical-align:middle;">

@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "Twitch 直播通知器 | 聊天室翻译",
+    "message": "Twitch (Kick) 直播通知器 | 聊天室翻译",
     "description": "Extension name"
   },
   "extensionDescription": {
-    "message": "当选定的 Twitch 主播开播时通知，并在弹出窗口中显示直播资讯。包含聊天室翻译与多语言支持。",
+    "message": "当选定的 Twitch (Kick) 主播开播时通知，并在弹出窗口中显示直播资讯。包含聊天室翻译与多语言支持。",
     "description": "Extension description"
   },
   "extensionTitle": {
@@ -90,6 +90,34 @@
   "channelInputHelp": {
     "message": "输入主播的 Twitch ID 或 网址（例如：kaicenat, https://www.twitch.tv/kaicenat）",
     "description": "Channel input help text"
+  },
+  "kickStreamerManagement": {
+    "message": "Kick 频道管理",
+    "description": "Kick 频道管理区块标题"
+  },
+  "kickChannelInputPlaceholder": {
+    "message": "输入 Kick 频道名称或网址，多个用逗号分隔",
+    "description": "Kick 频道输入框提示文字"
+  },
+  "kickChannelInputHelp": {
+    "message": "输入主播的 Kick ID 或网址（例如：kaicenat, https://kick.com/joeykaotyk）",
+    "description": "Kick 频道输入说明文字"
+  },
+  "kickNotificationSettingsLabel": {
+    "message": "Kick 开播通知",
+    "description": "Kick notification settings label"
+  },
+  "deleteAllKickChannels": {
+    "message": "删除所有 Kick 频道",
+    "description": "删除所有 Kick 频道按钮"
+  },
+  "deleteAllKickChannelsConfirm": {
+    "message": "确定要删除所有 Kick 频道吗？<br>此操作无法复原。",
+    "description": "删除所有 Kick 频道确认信息"
+  },
+  "allKickChannelsDeleted": {
+    "message": "已删除所有 Kick 频道",
+    "description": "删除所有 Kick 频道成功信息"
   },
   "twitchAuth": {
     "message": "Twitch 授权",
@@ -407,6 +435,10 @@
         "example": "kaicenat"
       }
     }
+  },
+  "multiPlatformLiveNotificationTitle": {
+    "message": "$1 多平台同时开播",
+    "description": "Multi platform live notification title"
   },
   "testNotificationTitle": {
     "message": "测试通知",

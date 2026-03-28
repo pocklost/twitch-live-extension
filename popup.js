@@ -76,6 +76,7 @@ function switchTab(tabName) {
 
     loadSettings();
     loadChannels();
+    loadKickChannels();
     checkAuthStatus();
   }
 }
@@ -92,6 +93,48 @@ function parseChannels(input) {
       }
       return s.toLowerCase();
     });
+}
+
+function parseKickSlugs(input) {
+  return input
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => {
+      const kickUrlMatch = s.match(/https?:\/\/(?:www\.)?kick\.com\/([^\/\?\#]+)/i);
+      if (kickUrlMatch) {
+        return kickUrlMatch[1].toLowerCase();
+      }
+      return s.toLowerCase();
+    });
+}
+
+function getStreamItemKey(stream) {
+  const platform = stream?.platform || 'twitch';
+  const username = stream?.username || stream?.channel?.display_name || '';
+  return `${platform}:${String(username)}`.toLowerCase();
+}
+
+function getStreamIdentityKey(stream) {
+  const u = stream?.username ?? stream?.channel?.display_name ?? '';
+  return String(u).toLowerCase();
+}
+
+/** 同一人（login/slug 不區分大小寫）只保留一筆：有 Twitch 則捨 Kick，僅 Kick 才顯示 Kick。 */
+function dedupeStreamsPreferTwitch(streams) {
+  const byId = new Map();
+  for (const s of streams || []) {
+    const id = getStreamIdentityKey(s);
+    if (!id) continue;
+    const cur = byId.get(id);
+    if (!cur) {
+      byId.set(id, s);
+      continue;
+    }
+    const isTwitch = (x) => x?.platform !== 'kick';
+    if (isTwitch(s) && !isTwitch(cur)) byId.set(id, s);
+  }
+  return Array.from(byId.values());
 }
 
 function renderChips(channels) {
@@ -139,6 +182,121 @@ function renderChips(channels) {
   });
 }
 
+function renderKickChips(channels) {
+  const chips = document.getElementById('kickChips');
+  if (!chips) return;
+  while (chips.firstChild) {
+    chips.removeChild(chips.firstChild);
+  }
+
+  (channels || []).forEach((c) => {
+    const slug = String(c).toLowerCase();
+    if (!slug) return;
+
+    const tag = document.createElement('div');
+    tag.className = 'tag';
+    const textNode = document.createTextNode(slug + ' ');
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'tag-remove';
+    removeBtn.setAttribute('data-kick-slug', slug);
+    removeBtn.textContent = '×';
+    tag.appendChild(textNode);
+    tag.appendChild(removeBtn);
+    chips.appendChild(tag);
+  });
+
+  chips.querySelectorAll('.tag-remove').forEach((el) => {
+    el.addEventListener('click', () => {
+      const toRemove = el.getAttribute('data-kick-slug');
+      if (!toRemove) return;
+
+      const confirmMessage = chrome.i18n.getMessage('confirmDeleteChannel', [toRemove]) || `確定要刪除 Kick 頻道「${toRemove}」嗎？`;
+      showConfirmDialog(confirmMessage, () => {
+        if (el.disabled) return;
+        el.disabled = true;
+
+        chrome.runtime.sendMessage({ type: 'kick:channels:remove', slug: toRemove }, (response) => {
+          if (chrome.runtime.lastError) {
+            showStatus(`❌ ${chrome.runtime.lastError.message}`, 'error');
+            el.disabled = false;
+            return;
+          }
+          if (response?.ok) {
+            loadKickChannels();
+            showStatus(chrome.i18n.getMessage('channelRemoved') || '已刪除', 'success');
+          } else {
+            const msg = response?.error || chrome.i18n.getMessage('deleteFailed') || 'Delete failed';
+            showStatus(`❌ ${msg}`, 'error');
+            el.disabled = false;
+          }
+        });
+      }, null, chrome.i18n.getMessage('confirmDelete'));
+    });
+  });
+}
+
+function renderKickNotificationToggles(channels, notificationSettings) {
+  const container = document.getElementById('kickNotificationChannels');
+  if (!container) return;
+
+  while (container.firstChild) container.removeChild(container.firstChild);
+
+  (channels || []).forEach((c) => {
+    const slug = String(c).toLowerCase();
+    if (!slug) return;
+
+    const kickKey = `kick:${slug}`;
+    const enabled = notificationSettings?.[kickKey] === true;
+
+    const row = document.createElement('div');
+    row.style.cssText =
+      'display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--border-light);';
+
+    const left = document.createElement('div');
+    left.style.cssText = 'font-size:13px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+    left.textContent = slug;
+
+    const label = document.createElement('label');
+    label.className = 'toggle-switch';
+    label.style.flexShrink = '0';
+
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = enabled;
+    input.setAttribute('data-kick-slug', slug);
+
+    const slider = document.createElement('span');
+    slider.className = 'toggle-slider';
+
+    label.appendChild(input);
+    label.appendChild(slider);
+
+    row.appendChild(left);
+    row.appendChild(label);
+    container.appendChild(row);
+  });
+}
+
+function loadKickChannels() {
+  chrome.runtime.sendMessage({ type: 'kick:channels:list' }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.log('Error loading kick channels:', chrome.runtime.lastError.message);
+      return;
+    }
+    const channels = response?.channels || [];
+    renderKickChips(channels);
+
+    chrome.runtime.sendMessage({ type: 'notification:get' }, (notificationResponse) => {
+      if (chrome.runtime.lastError) {
+        console.log('Error loading notification settings:', chrome.runtime.lastError.message);
+        return;
+      }
+      const notificationSettings = notificationResponse?.settings || {};
+      renderKickNotificationToggles(channels, notificationSettings);
+    });
+  });
+}
+
 function loadChannels() {
   chrome.runtime.sendMessage({ type: 'streams:list' }, (response) => {
     if (chrome.runtime.lastError) {
@@ -146,7 +304,10 @@ function loadChannels() {
       return;
     }
     if (response?.payload) {
-      const channels = response.payload.map(s => s.username).filter(Boolean);
+      const channels = response.payload
+        .filter((item) => !item?.platform || item.platform === 'twitch')
+        .map((s) => s.username)
+        .filter(Boolean);
       renderChips(channels);
     }
   });
@@ -586,8 +747,10 @@ async function renderStreamList(streams, settings) {
   errorState.classList.add('hidden');
   errorMessageEl.textContent = '';
   
-  const liveStreams = (streams || []).filter(stream => stream.channel);
-  const offlineStreams = (streams || []).filter(stream => !stream.channel);
+  let liveStreams = (streams || []).filter(stream => stream.channel);
+  let offlineStreams = (streams || []).filter(stream => !stream.channel);
+  liveStreams = dedupeStreamsPreferTwitch(liveStreams);
+  offlineStreams = dedupeStreamsPreferTwitch(offlineStreams);
   
   if (liveStreams.length === 0 && offlineStreams.length === 0) {
     emptyState.classList.remove('hidden');
@@ -690,7 +853,7 @@ async function renderStreamList(streams, settings) {
         const sep = document.createElement('li');
         sep.className = 'fav-separator';
         sep.style.cssText = 'height:8px';
-          const firstOtherItem = streamList.querySelector(`[data-username="${otherLive[0]?.username}"]`);
+          const firstOtherItem = streamList.querySelector(`[data-username="${getStreamItemKey(otherLive[0])}"]`);
           if (firstOtherItem) {
             streamList.insertBefore(sep, firstOtherItem);
           } else {
@@ -892,6 +1055,8 @@ async function updateStreamList(streamList, liveStreams, offlineStreams, setting
   if (!streamList) {
     return;
   }
+  liveStreams = dedupeStreamsPreferTwitch(liveStreams || []);
+  offlineStreams = dedupeStreamsPreferTwitch(offlineStreams || []);
   
   const existingItems = Array.from(streamList.children);
   const existingLiveItems = existingItems.filter(item => !item.classList.contains('offline-section'));
@@ -909,24 +1074,24 @@ async function updateLiveStreamItems(streamList, existingItems, liveStreams, set
   
   const itemMap = new Map();
   existingItems.forEach(item => {
-    const username = item.getAttribute('data-username');
-    if (username) {
-      itemMap.set(username, item);
+    const streamKey = item.getAttribute('data-username');
+    if (streamKey) {
+      itemMap.set(streamKey, item);
     }
   });
   
-  const currentUsernames = new Set();
+  const currentStreamKeys = new Set();
   
   for (const [index, stream] of liveStreams.entries()) {
-    const username = stream.username || stream.channel?.display_name;
-    currentUsernames.add(username);
-    let item = itemMap.get(username);
+    const streamKey = getStreamItemKey(stream);
+    currentStreamKeys.add(streamKey);
+    let item = itemMap.get(streamKey);
     
     if (item) {
       updateStreamItemContent(item, stream, settings);
     } else {
       item = await createStreamItem(stream, settings);
-      item.setAttribute('data-username', username);
+      item.setAttribute('data-username', streamKey);
       
       const insertIndex = Math.min(index, streamList.children.length);
       const insertBefore = streamList.children[insertIndex];
@@ -939,30 +1104,45 @@ async function updateLiveStreamItems(streamList, existingItems, liveStreams, set
   }
   
   existingItems.forEach(item => {
-    const username = item.getAttribute('data-username');
-    if (username && !currentUsernames.has(username)) {
+    const streamKey = item.getAttribute('data-username');
+    if (streamKey && !currentStreamKeys.has(streamKey)) {
       item.remove();
     }
   });
 }
 
 function updateStreamItemContent(item, stream, settings) {
+  const isKick = stream.platform === 'kick';
+
   const img = item.querySelector('.stream-thumbnail img');
   if (img) {
-    const newUrl = getPreviewUrl(stream.username, 640, 360) + `?t=${Date.now()}`;
-    if (img.dataset.pendingSrc === newUrl || img.src === newUrl) {
+    if (!isKick) {
+      const newUrl = getPreviewUrl(stream.username, 640, 360) + `?t=${Date.now()}`;
+      if (!(img.dataset.pendingSrc === newUrl || img.src === newUrl)) {
+        img.dataset.pendingSrc = newUrl;
+        const preloader = new Image();
+        preloader.onload = () => {
+          if (img.dataset.pendingSrc === newUrl) {
+            img.src = newUrl;
+            img.style.opacity = '0.999';
+            requestAnimationFrame(() => { img.style.opacity = ''; });
+            delete img.dataset.pendingSrc;
+          }
+        };
+        preloader.src = newUrl;
+      }
     } else {
-      img.dataset.pendingSrc = newUrl;
-      const preloader = new Image();
-      preloader.onload = () => {
-        if (img.dataset.pendingSrc === newUrl) {
-          img.src = newUrl;
-          img.style.opacity = '0.999';
-          requestAnimationFrame(() => { img.style.opacity = ''; });
-          delete img.dataset.pendingSrc;
-        }
-      };
-      preloader.src = newUrl;
+      const kickThumbnailUrl =
+        stream?.channel?.thumbnail_url ||
+        stream?.channel?.thumbnailUrl ||
+        stream?.channel?.preview_url ||
+        stream?.channel?.previewUrl ||
+        stream?.channel?.image_url ||
+        stream?.channel?.imageUrl ||
+        null;
+      if (kickThumbnailUrl && img.src !== kickThumbnailUrl) {
+        img.src = kickThumbnailUrl;
+      }
     }
   }
   
@@ -994,17 +1174,23 @@ function updateStreamItemContent(item, stream, settings) {
   }
   
   const timeBadge = item.querySelector('.live-time-badge');
-  if (timeBadge && stream.created_at) {
-    const newTime = formatStreamTime(stream.created_at);
-    if (timeBadge.textContent !== newTime) {
-      timeBadge.textContent = newTime;
-      item.dataset.startTime = stream.created_at;
+  if (timeBadge) {
+    if (isKick) {
+      // Kick 不顯示直播時間
+      timeBadge.remove();
+      delete item.dataset.startTime;
+    } else if (stream.created_at) {
+      const newTime = formatStreamTime(stream.created_at);
+      if (timeBadge.textContent !== newTime) {
+        timeBadge.textContent = newTime;
+        item.dataset.startTime = stream.created_at;
+      }
     }
   }
   
   const durationLabel = item.querySelector('.duration-label');
-  if (durationLabel && stream.created_at) {
-        const newDurationLabel = chrome.i18n.getMessage('liveStreamDuration', [formatStreamTime(stream.created_at)]);
+  if (!isKick && durationLabel && stream.created_at) {
+    const newDurationLabel = chrome.i18n.getMessage('liveStreamDuration', [formatStreamTime(stream.created_at)]);
     if (durationLabel.textContent !== newDurationLabel) {
       durationLabel.textContent = newDurationLabel;
     }
@@ -1014,13 +1200,18 @@ function updateStreamItemContent(item, stream, settings) {
 async function createStreamItem(stream, settings) {
     const item = document.createElement('li');
     item.className = 'stream-item fade-in';
-    item.setAttribute('data-username', stream.username || stream.channel?.display_name);
-  if (stream.created_at) {
-    item.dataset.startTime = stream.created_at;
-  }
+    const streamKey = getStreamItemKey(stream);
+    item.setAttribute('data-username', streamKey);
+    item.dataset.platform = stream?.platform || 'twitch';
+    const isKick = stream.platform === 'kick';
+  
+    // Kick 不需要直播時間（不渲染 live-time-badge，也不設定 startTime 給時間更新器）
+    if (!isKick && stream.created_at) {
+      item.dataset.startTime = stream.created_at;
+    }
   
   item.addEventListener('click', () => {
-      const url = `https://www.twitch.tv/${stream.username}`;
+      const url = isKick ? `https://kick.com/${stream.username}` : `https://www.twitch.tv/${stream.username}`;
       chrome.tabs.create({ url });
     });
     
@@ -1036,13 +1227,21 @@ async function createStreamItem(stream, settings) {
       showConfirmDialog(confirmMessage, () => {
       if (removeBtn.disabled) return;
       removeBtn.disabled = true;
-      chrome.runtime.sendMessage({ type: 'streams:remove', username: stream.username }, (response) => {
+      const removeMsg = isKick
+        ? { type: 'kick:channels:remove', slug: stream.username }
+        : { type: 'streams:remove', username: stream.username };
+      chrome.runtime.sendMessage(removeMsg, (response) => {
         if (chrome.runtime.lastError) {
           showStatus(`❌ ${chrome.runtime.lastError.message}`, 'error');
           removeBtn.disabled = false;
           return;
         }
         if (response?.ok) {
+          if (isKick) {
+            loadKickChannels();
+          } else {
+            renderChips(response.channels || []);
+          }
           refresh();
         } else {
           const msg = response?.error || chrome.i18n.getMessage('deleteFailed') || 'Delete failed';
@@ -1065,13 +1264,36 @@ async function createStreamItem(stream, settings) {
     });
   }
     
-  const thumbnailUrl = getPreviewUrl(stream.username, 640, 360) + `?t=${Date.now()}`;
-      const thumbnailHtml = settings.hidePreviews ? '' : `
-        <div class=\"stream-thumbnail\" style=\"position: relative;\">
-          <img src=\"${thumbnailUrl}\" alt=\"${stream.username} stream\" />
-          <span class=\"live-time-badge\">${formatStreamTime(stream.created_at)}</span>
-        </div>
-      `;
+  const kickThumbnailUrl =
+    stream?.channel?.thumbnail_url ||
+    stream?.channel?.thumbnailUrl ||
+    stream?.channel?.preview_url ||
+    stream?.channel?.previewUrl ||
+    stream?.channel?.image_url ||
+    stream?.channel?.imageUrl ||
+    null;
+
+  const thumbnailHtml = settings.hidePreviews ? '' : (isKick
+    ? (kickThumbnailUrl
+      ? `
+          <div class=\"stream-thumbnail\" style=\"position: relative;\">
+            <img src=\"${kickThumbnailUrl}\" alt=\"${stream.username} stream\" />
+          </div>
+        `
+      : `
+          <div class=\"stream-thumbnail\" style=\"position: relative;background: var(--bg-tertiary);\"></div>
+        `
+      )
+    : (() => {
+        const thumbnailUrl = getPreviewUrl(stream.username, 640, 360) + `?t=${Date.now()}`;
+        return `
+          <div class=\"stream-thumbnail\" style=\"position: relative;\">
+            <img src=\"${thumbnailUrl}\" alt=\"${stream.username} stream\" />
+            <span class=\"live-time-badge\">${formatStreamTime(stream.created_at)}</span>
+          </div>
+        `;
+      })()
+  );
 
   
   const displayTitle = stream.channel.status;
@@ -1221,8 +1443,8 @@ function updateOfflineStreamItems(offlineGrid, offlineStreams, settings) {
   });
   
   offlineStreams.forEach((stream, index) => {
-    const username = stream.username;
-    let item = itemMap.get(username);
+    const streamKey = getStreamItemKey(stream);
+    let item = itemMap.get(streamKey);
     
     if (!item) {
       item = createOfflineStreamItem(stream, settings);
@@ -1230,7 +1452,7 @@ function updateOfflineStreamItems(offlineGrid, offlineStreams, settings) {
     }
   });
   
-  const currentUsernames = new Set(offlineStreams.map(s => s.username));
+  const currentUsernames = new Set(offlineStreams.map(s => getStreamItemKey(s)));
   existingItems.forEach(item => {
     const username = item.getAttribute('data-username');
     if (username && !currentUsernames.has(username)) {
@@ -1266,9 +1488,10 @@ function createOfflineSection(offlineStreams, settings) {
 function createOfflineStreamItem(stream, settings) {
   const item = document.createElement('div');
   item.className = 'offline-card fade-in';
-  item.setAttribute('data-username', stream.username);
+  item.setAttribute('data-username', getStreamItemKey(stream));
+  const isKick = stream.platform === 'kick';
   item.addEventListener('click', () => {
-    const url = `https://www.twitch.tv/${stream.username}`;
+    const url = isKick ? `https://kick.com/${stream.username}` : `https://www.twitch.tv/${stream.username}`;
     chrome.tabs.create({ url });
   });
   
@@ -1285,14 +1508,21 @@ function createOfflineStreamItem(stream, settings) {
       showConfirmDialog(confirmMessage, () => {
         if (removeBtn.disabled) return;
         removeBtn.disabled = true;
-        chrome.runtime.sendMessage({ type: 'streams:remove', username: stream.username }, (response) => {
+        const removeMsg = isKick
+          ? { type: 'kick:channels:remove', slug: stream.username }
+          : { type: 'streams:remove', username: stream.username };
+        chrome.runtime.sendMessage(removeMsg, (response) => {
           if (chrome.runtime.lastError) {
             showStatus(`❌ ${chrome.runtime.lastError.message}`, 'error');
             removeBtn.disabled = false;
             return;
           }
           if (response?.ok) {
-            renderChips(response.channels || []);
+            if (isKick) {
+              loadKickChannels();
+            } else {
+              renderChips(response.channels || []);
+            }
             refresh();
           } else {
             const msg = response?.error || chrome.i18n.getMessage('deleteFailed') || 'Delete failed';
@@ -1502,7 +1732,9 @@ function renderChannelsList() {
     const channelsStatus = document.getElementById('channelsStatus');
     const channelsLastUpdate = document.getElementById('channelsLastUpdate');
     
-    if (!response?.payload || response.payload.length === 0) {
+    const twitchPayload = (response?.payload || []).filter((item) => !item?.platform || item.platform === 'twitch');
+
+    if (!twitchPayload || twitchPayload.length === 0) {
       showChannelsEmpty();
       
       if (channelsStatus) {
@@ -1520,7 +1752,7 @@ function renderChannelsList() {
     }
     
     if (channelsStatus) {
-      const totalChannels = response.payload.length;
+      const totalChannels = twitchPayload.length;
       channelsStatus.textContent = chrome.i18n.getMessage('trackedChannelsCount', [totalChannels]);
     }
     if (channelsLastUpdate) {
@@ -1542,7 +1774,7 @@ function renderChannelsList() {
       
       chrome.storage.local.get(['tsn_user_desc_cache'], (cacheObj) => {
         const cache = cacheObj?.tsn_user_desc_cache || {};
-        const allLogins = response.payload.map(c => String(c.username).toLowerCase()).filter(Boolean);
+        const allLogins = twitchPayload.map(c => String(c.username).toLowerCase()).filter(Boolean);
         const userMap = {};
         const missing = [];
         const nowTs = Date.now();
@@ -1559,19 +1791,20 @@ function renderChannelsList() {
           }
         });
 
-        const renderWith = (map) => {
+        const renderWith = (map, forceFullReplace = false) => {
           chrome.storage.local.get(['tsn_favorites'], (favObj) => {
             const fav = favObj?.tsn_favorites || {};
             const isFav = (login) => !!fav[String(login || '').toLowerCase()];
             
-            const favChannels = response.payload.filter(channel => isFav(channel.username));
-            const otherChannels = response.payload.filter(channel => !isFav(channel.username));
+            const favChannels = twitchPayload.filter(channel => isFav(channel.username));
+            const otherChannels = twitchPayload.filter(channel => !isFav(channel.username));
             
             const createChannelHTML = (channel) => {
         const isNotificationEnabled = notificationSettings[channel.username] === true;
         const login = channel.username;
+        const loginKey = String(login || '').toLowerCase();
         const displayName = channel.displayName || login;
-          const uinfo = map[login?.toLowerCase?.() || login] || {};
+          const uinfo = map[loginKey] || {};
           const description = uinfo.description || '';
         const followedAtRaw = channel.followedAt || null;
         let followDisplay = chrome.i18n.getMessage('unknown') || 'Unknown';
@@ -1672,8 +1905,13 @@ function renderChannelsList() {
             const existingItems = Array.from(channelsList.querySelectorAll('.channel-item'));
             const existingChannelIds = new Set(existingItems.map(item => item.getAttribute('data-channel-id')));
             const newChannelIds = new Set([...favChannels, ...otherChannels].map(c => c.username));
-            
-            if (existingChannelIds.size === 0 || !Array.from(existingChannelIds).every(id => newChannelIds.has(id))) {
+            const channelSetUnchanged =
+              existingChannelIds.size > 0 &&
+              existingChannelIds.size === newChannelIds.size &&
+              [...existingChannelIds].every((id) => newChannelIds.has(id)) &&
+              [...newChannelIds].every((id) => existingChannelIds.has(id));
+
+            if (forceFullReplace || !channelSetUnchanged) {
               const parser = new DOMParser();
               const doc = parser.parseFromString(html, 'text/html');
               const tempDiv = doc.body;
@@ -1717,21 +1955,25 @@ function renderChannelsList() {
 
         if (missing.length > 0) {
           chrome.runtime.sendMessage({ type: 'users:getInfoBatch', logins: missing }, (usersRes) => {
+            if (chrome.runtime.lastError) {
+              console.log('users:getInfoBatch failed:', chrome.runtime.lastError.message);
+              return;
+            }
             const fetched = usersRes?.users || {};
             const nextCache = { ...cache };
-            Object.keys(fetched).forEach(login => {
-              nextCache[login] = { 
-                desc: fetched[login].description || '', 
+            Object.keys(fetched).forEach((login) => {
+              nextCache[login] = {
+                desc: fetched[login].description || '',
                 profile_image_url: fetched[login].profile_image_url || '',
-                ts: Date.now() 
+                ts: Date.now()
               };
-              userMap[login] = { 
+              userMap[login] = {
                 description: fetched[login].description || '',
                 profile_image_url: fetched[login].profile_image_url || ''
               };
             });
             chrome.storage.local.set({ tsn_user_desc_cache: nextCache });
-            renderWith(userMap);
+            renderWith(userMap, true);
           });
         }
       });
@@ -2063,6 +2305,35 @@ document.getElementById('addChannel').addEventListener('click', () => {
   });
 });
 
+document.getElementById('addKickChannel')?.addEventListener('click', () => {
+  const input = document.getElementById('kickChannelInput');
+  const value = input?.value?.trim?.() || '';
+  if (!value) {
+    showStatus(chrome.i18n.getMessage('pleaseEnterChannelName'), 'error');
+    return;
+  }
+
+  const newSlugs = parseKickSlugs(value);
+  chrome.runtime.sendMessage({ type: 'kick:channels:add', slugs: newSlugs }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.log('Error adding kick channels:', chrome.runtime.lastError.message);
+      showStatus(`❌ ${chrome.runtime.lastError.message}`, 'error');
+      return;
+    }
+    if (response?.ok) {
+      if (input) input.value = '';
+      loadKickChannels();
+      showStatus(chrome.i18n.getMessage('addedChannels', [newSlugs.length]) || `已新增 ${newSlugs.length} 個 Kick 頻道`, 'success');
+      const currentTab = document.querySelector('.tab-btn.active');
+      if (currentTab && currentTab.id === 'streamsTab') {
+        refresh();
+      }
+    } else {
+      showStatus(chrome.i18n.getMessage('addChannelFailed') || 'Kick add failed', 'error');
+    }
+  });
+});
+
         document.getElementById('authorizeBtn').addEventListener('click', () => {
           const btn = document.getElementById('authorizeBtn');
           btn.disabled = true;
@@ -2349,6 +2620,13 @@ document.getElementById('channelInput').addEventListener('keydown', (e) => {
   }
 });
 
+document.getElementById('kickChannelInput')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('addKickChannel')?.click();
+  }
+});
+
 function showConfirmDialog(message, onConfirm, onCancel, confirmText = null) {
   const overlay = document.createElement('div');
   overlay.style.cssText = `
@@ -2472,6 +2750,29 @@ function deleteAllChannels() {
   });
 }
 
+function deleteAllKickChannels() {
+  const confirmMessage =
+    chrome.i18n.getMessage('deleteAllKickChannelsConfirm') ||
+    '確定要刪除所有 Kick 頻道嗎？<br>此操作無法復原。';
+
+  showConfirmDialog(confirmMessage, () => {
+    chrome.runtime.sendMessage({ type: 'kick:channels:deleteAll' }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.log('Error deleting all kick channels:', chrome.runtime.lastError.message);
+        showStatus(`❌ ${chrome.runtime.lastError.message}`, 'error');
+        return;
+      }
+      if (response?.ok) {
+        showStatus(chrome.i18n.getMessage('allKickChannelsDeleted') || '已刪除所有 Kick 頻道', 'success');
+        loadKickChannels();
+        refresh();
+      } else {
+        showStatus(`❌ ${response?.error || chrome.i18n.getMessage('deleteFailed') || 'Delete failed'}`, 'error');
+      }
+    });
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
       const settingsElements = ['muteNotifications', 'hideOffline', 'hidePreviews', 'pollMinutes', 'autoFollow', 'translationEnabled', 'translationProvider', 'targetLanguage', 'customPrefix', 'useKDisplay'];
   settingsElements.forEach(id => {
@@ -2572,6 +2873,44 @@ document.addEventListener('DOMContentLoaded', () => {
   const deleteAllBtn = document.getElementById('deleteAllChannels');
   if (deleteAllBtn) {
     deleteAllBtn.addEventListener('click', deleteAllChannels);
+  }
+
+  const deleteAllKickBtn = document.getElementById('deleteAllKickChannels');
+  if (deleteAllKickBtn) {
+    deleteAllKickBtn.addEventListener('click', deleteAllKickChannels);
+  }
+
+  const kickNotificationContainer = document.getElementById('kickNotificationChannels');
+  if (kickNotificationContainer) {
+    kickNotificationContainer.addEventListener('change', (e) => {
+      if (e.target?.type !== 'checkbox') return;
+      const slug = e.target.getAttribute('data-kick-slug');
+      if (!slug) return;
+
+      const kickKey = `kick:${String(slug).toLowerCase()}`;
+      const enabled = !!e.target.checked;
+
+      chrome.runtime.sendMessage({ type: 'notification:get' }, (notificationResponse) => {
+        if (chrome.runtime.lastError) {
+          console.log('Error loading notification settings:', chrome.runtime.lastError.message);
+          return;
+        }
+
+        const notificationSettings = notificationResponse?.settings || {};
+        notificationSettings[kickKey] = enabled;
+
+        chrome.runtime.sendMessage({ type: 'notification:save', settings: notificationSettings }, (saveResponse) => {
+          if (chrome.runtime.lastError) {
+            console.log('Error saving notification settings:', chrome.runtime.lastError.message);
+            return;
+          }
+
+          if (saveResponse?.ok && enabled) {
+            chrome.runtime.sendMessage({ type: 'notification:checkChannel', channelId: kickKey });
+          }
+        });
+      });
+    });
   }
   
   const selectAllBtn = document.getElementById('selectAllNotifications');
