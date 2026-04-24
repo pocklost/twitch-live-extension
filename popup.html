@@ -1453,6 +1453,38 @@
         line-height: 1.5;
       }
 
+      .auth-help-box {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 0;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        transition: all 0.2s ease;
+      }
+
+      .auth-help-icon {
+        display: none;
+        margin-top: 1px;
+        color: #f59e0b;
+        flex-shrink: 0;
+      }
+
+      .auth-help-box.auth-help-warning {
+        padding: 10px 12px;
+        border: 1px solid rgba(245, 158, 11, 0.4);
+        background: rgba(245, 158, 11, 0.12);
+      }
+
+      .auth-help-box.auth-help-warning .auth-help-icon {
+        display: inline-flex;
+      }
+
+      .auth-help-box.auth-help-warning #authorizeHelpText {
+        color: #f8d38d;
+      }
+
       .auth-status {
         position: relative;
       }
@@ -1762,7 +1794,7 @@
           </div>
         </div>
         
-        <div class="channels-container" style="padding: 16px; margin-bottom: 70px; height: calc(100vh - 120px); overflow-y: auto;">
+        <div class="channels-container" style="padding: 16px 16px 100px; height: calc(100vh - 50px); overflow-y: auto; box-sizing: border-box;">
           <div class="channels-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <h3 data-i18n="channelManagement">Channel Management</h3>
             <div class="channel-actions">
@@ -1865,8 +1897,15 @@
                         <button class="btn-primary" id="authorizeBtn" style="width: 100%; margin-bottom: 16px;">
                           <span data-i18n="authorizeTwitchAccount">Authorize Twitch Account</span>
                         </button>
-                        <div class="help-text">
-                          <span data-i18n="authorizeHelp">Click the button above to authorize your Twitch account</span>
+                        <div class="help-text auth-help-box" id="authorizeHelpBox">
+                          <span class="auth-help-icon" id="authorizeHelpIcon" aria-hidden="true">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                              <line x1="12" y1="9" x2="12" y2="13"></line>
+                              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                            </svg>
+                          </span>
+                          <span id="authorizeHelpText" data-i18n="authorizeHelp">Click the button above to authorize your Twitch account</span>
                         </div>
                       </div>
                     </div>

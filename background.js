@@ -10,6 +10,7 @@ const KICK_PUBLIC_CHANNEL_API = 'https://api.kick.com/public/v1/channels?slug=';
 const KICK_OAUTH_TOKEN_BASE = 'https://id.kick.com/oauth/token';
 const KICK_CLIENT_ID = '01K36JDZPC2X6DM9YN8NBJDMCH';
 const KICK_CLIENT_SECRET = '1772e9969e4a9f42853975c66cb5b3c54f2aba8e2b6de2ba34179f83ff53ced5';
+const AUTO_AUTH_BLOCK_MS = 12 * 60 * 60 * 1000;
 
 const STORAGE = {
   channels: 'tsn_channels',
@@ -27,7 +28,9 @@ const STORAGE = {
   kickAppAccessToken: 'tsn_kick_app_access_token',
   kickAppTokenExpiry: 'tsn_kick_app_token_expiry',
   countdownStartTime: 'tsn_countdown_start_time',
-  pollInterval: 'tsn_poll_interval'
+  pollInterval: 'tsn_poll_interval',
+  authAutoBlockedUntil: 'tsn_auth_auto_blocked_until',
+  authBlockReason: 'tsn_auth_block_reason'
 };
 
 class StreamStateManager {
@@ -114,14 +117,82 @@ class StreamStateManager {
     return null;
   }
 
-  async ensureAccessToken() {
-    const existing = await this.getAccessToken();
-    if (existing) return existing;
-    const fresh = await this.authorizeUser();
-    return fresh;
+  async setAutoAuthBlocked(reason = 'unknown', blockMs = AUTO_AUTH_BLOCK_MS) {
+    const blockedUntil = Date.now() + blockMs;
+    await this.write({
+      [STORAGE.authAutoBlockedUntil]: blockedUntil,
+      [STORAGE.authBlockReason]: reason
+    });
   }
 
-  async authorizeUser() {
+  async clearAutoAuthBlocked() {
+    await this.write({
+      [STORAGE.authAutoBlockedUntil]: null,
+      [STORAGE.authBlockReason]: null
+    });
+  }
+
+  async handleUnauthorizedToken(reason = 'token_invalid') {
+    await this.write({
+      [STORAGE.accessToken]: null,
+      [STORAGE.tokenExpiry]: null
+    });
+    await this.setAutoAuthBlocked(reason);
+  }
+
+  async validateAccessToken(accessToken) {
+    if (!accessToken) return { valid: false, reason: 'missing_token' };
+    try {
+      const response = await fetch(`${TWITCH_API_BASE}/users`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Client-Id': TWITCH_CLIENT_ID
+        }
+      });
+      if (response.ok) {
+        return { valid: true };
+      }
+      if (response.status === 401 || response.status === 403) {
+        return { valid: false, reason: 'token_invalid' };
+      }
+      return { valid: false, reason: `http_${response.status}`, retriable: true };
+    } catch (error) {
+      console.log('validateAccessToken network error:', error?.message || error);
+      return { valid: false, reason: 'network_error', retriable: true };
+    }
+  }
+
+  async ensureAccessToken(options = {}) {
+    const { interactive = false, source = 'auto' } = options;
+    const existing = await this.getAccessToken();
+    if (existing) return existing;
+
+    if (!interactive) return null;
+
+    if (source !== 'manual') {
+      const authState = await this.read([STORAGE.authAutoBlockedUntil, STORAGE.authBlockReason]);
+      const blockedUntil = Number(authState[STORAGE.authAutoBlockedUntil] || 0);
+      if (blockedUntil > Date.now()) {
+        const reason = authState[STORAGE.authBlockReason] || 'unknown';
+        console.log(`Auto auth blocked until ${new Date(blockedUntil).toISOString()} (reason: ${reason})`);
+        return null;
+      }
+    }
+
+    try {
+      const fresh = await this.authorizeUser({ source });
+      return fresh;
+    } catch (error) {
+      if (source !== 'manual') {
+        await this.setAutoAuthBlocked('authorize_failed');
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  async authorizeUser(options = {}) {
+    const { source = 'manual' } = options;
     console.log('Starting OAuth authorization...');
     
     if (TWITCH_CLIENT_ID === 'YOUR_CLIENT_ID_HERE') {
@@ -159,7 +230,9 @@ class StreamStateManager {
               if (accessToken) {
                 await this.write({
                   [STORAGE.accessToken]: accessToken,
-                  [STORAGE.tokenExpiry]: Date.now() + (365 * 24 * 60 * 60 * 1000)
+                  [STORAGE.tokenExpiry]: Date.now() + (365 * 24 * 60 * 60 * 1000),
+                  [STORAGE.authAutoBlockedUntil]: null,
+                  [STORAGE.authBlockReason]: null
                 });
                 await chrome.tabs.update(tabId, { url: chrome.runtime.getURL('authorization-success.html') });
                 console.log('User authorized successfully');
@@ -185,6 +258,9 @@ class StreamStateManager {
       });
     } catch (error) {
       console.error('Authorization failed:', error);
+      if (source !== 'manual') {
+        await this.setAutoAuthBlocked('authorize_failed');
+      }
       throw error;
     }
   }
@@ -198,9 +274,10 @@ class StreamStateManager {
     }
     
     try {
-      const accessToken = await this.ensureAccessToken();
+      const accessToken = await this.ensureAccessToken({ interactive: true, source: 'auto' });
       if (!accessToken) {
-        throw new Error('No access token available');
+        console.log('No token available for automatic fetch, skipping interactive auth.');
+        return {};
       }
       const lower = Array.from(new Set(usernames.map((u) => u.toLowerCase())));
       
@@ -241,10 +318,7 @@ class StreamStateManager {
         if (!response.ok) {
           const errorText = await response.text();
           if (response.status === 401) {
-            await this.write({
-              [STORAGE.accessToken]: null,
-              [STORAGE.tokenExpiry]: null
-            });
+            await this.handleUnauthorizedToken('token_invalid');
           }
           console.error(`Twitch API failed for batch ${Math.floor(i / batchSize) + 1}: ${response.status} ${response.statusText}`, errorText);
           throw new Error(`Twitch API failed for batch ${Math.floor(i / batchSize) + 1}: ${response.status} - ${errorText}`);
@@ -310,10 +384,7 @@ class StreamStateManager {
       
       if (!response.ok) {
         if (response.status === 401) {
-          await this.write({
-            [STORAGE.accessToken]: null,
-            [STORAGE.tokenExpiry]: null
-          });
+          await this.handleUnauthorizedToken('token_invalid');
         }
         console.error(`User lookup failed for batch: ${response.status} ${response.statusText}`);
         throw new Error(`User lookup failed: ${response.status}`);
@@ -350,10 +421,7 @@ class StreamStateManager {
       if (!userResponse.ok) {
         const errorText = await userResponse.text();
         if (userResponse.status === 401) {
-          await this.write({
-            [STORAGE.accessToken]: null,
-            [STORAGE.tokenExpiry]: null
-          });
+          await this.handleUnauthorizedToken('token_invalid');
         }
         console.error('User info error:', errorText);
         throw new Error(`Failed to get user info: ${userResponse.status} - ${errorText}`);
@@ -458,10 +526,7 @@ class StreamStateManager {
       
       if (!userResponse.ok) {
         if (userResponse.status === 401) {
-          await this.write({
-            [STORAGE.accessToken]: null,
-            [STORAGE.tokenExpiry]: null
-          });
+          await this.handleUnauthorizedToken('token_invalid');
         }
         throw new Error(`Failed to get user info: ${userResponse.status}`);
       }
@@ -791,7 +856,10 @@ const tracker = new StreamStateManager();
 async function handleVodRequest(msg, sendResponse) {
   console.log('VOD request received:', msg);
   try {
-    const accessToken = await tracker.ensureAccessToken();
+    const accessToken = await tracker.ensureAccessToken({ interactive: false });
+    if (!accessToken) {
+      throw new Error('Not authorized');
+    }
     
     console.log('Getting VODs for username:', msg.username);
     const { items, cursor } = await tracker.getChannelVods(msg.username, accessToken, msg.limit || 20, msg.after || null);
@@ -1371,7 +1439,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     }
     if (msg?.type === 'auth:start') {
       try {
-        await tracker.authorizeUser();
+        await tracker.authorizeUser({ source: 'manual' });
+        setTimeout(() => {
+          performPollAndBroadcast().catch((e) => {
+            console.error('Immediate refresh after auth failed:', e);
+          });
+        }, 0);
         sendResponse({ ok: true });
       } catch (e) {
         sendResponse({ error: String(e?.message || e) });
@@ -1380,16 +1453,38 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     }
     if (msg?.type === 'auth:check') {
       try {
-        const data = await tracker.read([STORAGE.accessToken, STORAGE.tokenExpiry]);
+        const data = await tracker.read([
+          STORAGE.accessToken,
+          STORAGE.tokenExpiry,
+          STORAGE.authAutoBlockedUntil,
+          STORAGE.authBlockReason
+        ]);
         const token = data[STORAGE.accessToken];
         const expiry = data[STORAGE.tokenExpiry];
-        const authorized = token && expiry && Date.now() < expiry;
+        let authorized = token && expiry && Date.now() < expiry;
+        let blockedUntil = Number(data[STORAGE.authAutoBlockedUntil] || 0);
+        let blockReason = data[STORAGE.authBlockReason] || '';
+
+        if (authorized) {
+          const validation = await tracker.validateAccessToken(token);
+          if (!validation.valid && !validation.retriable) {
+            await tracker.handleUnauthorizedToken(validation.reason || 'token_invalid');
+            authorized = false;
+            blockedUntil = Date.now() + AUTO_AUTH_BLOCK_MS;
+            blockReason = validation.reason || 'token_invalid';
+          }
+        }
         
         if (token && expiry && (expiry - Date.now()) < (7 * 24 * 60 * 60 * 1000)) {
           console.log('Token will expire soon, but still valid for now');
         }
         
-        sendResponse({ authorized });
+        sendResponse({
+          authorized,
+          blockedUntil,
+          blockReason,
+          needsManualLogin: !authorized && blockedUntil > Date.now()
+        });
       } catch (e) {
         console.log('Auth check error:', e);
         sendResponse({ authorized: false });
@@ -1400,7 +1495,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       try {
         await tracker.write({
           [STORAGE.accessToken]: null,
-          [STORAGE.tokenExpiry]: null
+          [STORAGE.tokenExpiry]: null,
+          [STORAGE.authAutoBlockedUntil]: null,
+          [STORAGE.authBlockReason]: null
         });
         sendResponse({ ok: true });
       } catch (e) {
@@ -1898,7 +1995,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg?.type === 'test:autoFollow') {
       try {
         console.log('Testing auto-follow functionality...');
-        const accessToken = await tracker.ensureAccessToken();
+        const accessToken = await tracker.ensureAccessToken({ interactive: true, source: 'manual' });
+        if (!accessToken) {
+          throw new Error('No access token available. Please authorize first.');
+        }
         console.log('Access token obtained for test, fetching followed channels...');
         
         const followedChannels = await tracker.getFollowedChannels(accessToken);
@@ -1953,7 +2053,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     }
     if (msg?.type === 'auth:getUserInfo') {
       try {
-        const accessToken = await tracker.ensureAccessToken();
+        const accessToken = await tracker.ensureAccessToken({ interactive: false });
+        if (!accessToken) {
+          throw new Error('Not authorized');
+        }
         
         const userResponse = await fetch(`${TWITCH_API_BASE}/users`, {
           headers: {
@@ -1964,10 +2067,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         
         if (!userResponse.ok) {
           if (userResponse.status === 401) {
-            await tracker.write({
-              [STORAGE.accessToken]: null,
-              [STORAGE.tokenExpiry]: null
-            });
+            await tracker.handleUnauthorizedToken('token_invalid');
           }
           throw new Error(`Failed to get user info: ${userResponse.status}`);
         }
@@ -2002,7 +2102,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           sendResponse({ ok: true, users: {} });
           return;
         }
-        const accessToken = await tracker.ensureAccessToken();
+        const accessToken = await tracker.ensureAccessToken({ interactive: false });
+        if (!accessToken) {
+          throw new Error('Not authorized');
+        }
         const batchSize = 100;
         const resultMap = {};
         for (let i = 0; i < logins.length; i += batchSize) {
@@ -2018,10 +2121,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           if (!resp.ok) {
             const t = await resp.text();
             if (resp.status === 401) {
-              await tracker.write({
-                [STORAGE.accessToken]: null,
-                [STORAGE.tokenExpiry]: null
-              });
+              await tracker.handleUnauthorizedToken('token_invalid');
             }
             throw new Error(`users lookup failed: ${resp.status} ${t}`);
           }

@@ -131,6 +131,10 @@
     "message": "위 버튼을 클릭하여 Twitch 계정을 인증하세요",
     "description": "Authorization help text"
   },
+  "authNeedsManualReloginHelp": {
+    "message": "인증이 만료되었거나 계정 상태에 문제가 있습니다. 수동으로 다시 로그인하고 Twitch 연동 권한을 확인해 주세요.",
+    "description": "Shown when auth token is invalid and user needs manual re-login"
+  },
   "autoTracking": {
     "message": "자동 추적",
     "description": "Auto tracking section title"
@@ -597,6 +601,21 @@
     "description": "Follow age with days only",
     "placeholders": {
       "days": { "content": "$1", "example": "120" }
+    }
+  },
+  "syncComplete": {
+    "message": "동기화 완료! 채널 $1개 추가, $2개 제거",
+    "description": "Sync complete message with additions and removals",
+    "placeholders": {
+      "added": { "content": "$1", "example": "2" },
+      "removed": { "content": "$2", "example": "1" }
+    }
+  },
+  "removedChannels": {
+    "message": "언팔로우한 채널 $1개를 제거했습니다",
+    "description": "Removed channels message",
+    "placeholders": {
+      "count": { "content": "$1", "example": "3" }
     }
   },
   "useKDisplay": {

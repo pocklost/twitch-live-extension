@@ -131,6 +131,10 @@
     "message": "上記のボタンをクリックして Twitch アカウントを認証してください",
     "description": "Authorization help text"
   },
+  "authNeedsManualReloginHelp": {
+    "message": "認証が無効、またはアカウント状態に問題があります。手動で再ログインし、Twitch 連携の許可を確認してください。",
+    "description": "Shown when auth token is invalid and user needs manual re-login"
+  },
   "autoTracking": {
     "message": "自動追跡",
     "description": "Auto tracking section title"
@@ -599,6 +603,21 @@
     "description": "Follow age with days only",
     "placeholders": {
       "days": { "content": "$1", "example": "120" }
+    }
+  },
+  "syncComplete": {
+    "message": "同期完了！$1 チャンネル追加、$2 チャンネル削除",
+    "description": "Sync complete message with additions and removals",
+    "placeholders": {
+      "added": { "content": "$1", "example": "2" },
+      "removed": { "content": "$2", "example": "1" }
+    }
+  },
+  "removedChannels": {
+    "message": "フォロー解除された $1 チャンネルを削除しました",
+    "description": "Removed channels message",
+    "placeholders": {
+      "count": { "content": "$1", "example": "3" }
     }
   },
   "useKDisplay": {

@@ -475,7 +475,20 @@ function loadNotificationSettings() {
 }
 
 
-function updateAuthStatus(isAuthorized) {
+function updateAuthHintText(authInfo = {}) {
+  const authHelpBox = document.getElementById('authorizeHelpBox');
+  const authHelpText = document.getElementById('authorizeHelpText');
+  if (!authHelpText) return;
+
+  const isBlocked = !!authInfo?.needsManualLogin;
+  const key = isBlocked ? 'authNeedsManualReloginHelp' : 'authorizeHelp';
+  authHelpText.textContent = chrome.i18n.getMessage(key) || '';
+  if (authHelpBox) {
+    authHelpBox.classList.toggle('auth-help-warning', isBlocked);
+  }
+}
+
+function updateAuthStatus(isAuthorized, authInfo = null) {
   const authSection = document.getElementById('authSection');
   const authPending = document.getElementById('authPending');
   const manualChannelSection = document.getElementById('manualChannelSection');
@@ -516,6 +529,7 @@ function updateAuthStatus(isAuthorized) {
     if (translationSection) translationSection.style.display = 'block';
     if (backupSection) backupSection.style.display = 'none';
     if (settingsStatusBar) settingsStatusBar.style.display = 'flex';
+    updateAuthHintText(authInfo || {});
   }
 }
 
@@ -525,7 +539,7 @@ function checkAuthStatus() {
       console.log('Error checking auth status:', chrome.runtime.lastError.message);
       return;
     }
-    updateAuthStatus(response?.authorized || false);
+    updateAuthStatus(response?.authorized || false, response || {});
   });
 }
 
@@ -2369,6 +2383,7 @@ document.getElementById('addKickChannel')?.addEventListener('click', () => {
             if (response?.ok) {
               showStatus(`✅ ${chrome.i18n.getMessage('authorizationSuccess')}`, 'success');
               updateAuthStatus(true);
+              refresh();
               promptEnableAutoFollow();
             } else {
               showStatus(`❌ ${chrome.i18n.getMessage('authorizationFailed', [response?.error || chrome.i18n.getMessage('unknown')])}`, 'error');
@@ -2411,6 +2426,7 @@ document.getElementById('addKickChannel')?.addEventListener('click', () => {
             if (response?.ok) {
               showStatus(`✅ ${chrome.i18n.getMessage('authorizationSuccess')}`, 'success');
               updateAuthStatus(true);
+              refresh();
               loadUserProfile();
               promptEnableAutoFollow();
             } else {
@@ -2454,6 +2470,7 @@ document.getElementById('addKickChannel')?.addEventListener('click', () => {
             if (response?.ok) {
               showStatus(`✅ ${chrome.i18n.getMessage('authorizationSuccess')}`, 'success');
               updateAuthStatus(true);
+              refresh();
               loadUserProfile();
               promptEnableAutoFollow();
             } else {

@@ -131,6 +131,10 @@
     "message": "Click the button above to authorize your Twitch account",
     "description": "Authorization help text"
   },
+  "authNeedsManualReloginHelp": {
+    "message": "Authorization appears invalid or account status has issues. Please sign in again manually and confirm Twitch linked access.",
+    "description": "Shown when auth token is invalid and user needs manual re-login"
+  },
   "autoTracking": {
     "message": "Auto Tracking",
     "description": "Auto tracking section title"
