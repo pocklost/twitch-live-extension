@@ -467,6 +467,234 @@
     "message": "Export settings to file, or import settings from file",
     "description": "Settings backup help text"
   },
+  "driveBackupTitle": {
+    "message": "Google Drive Cloud Backup",
+    "description": "Google Drive backup section title"
+  },
+  "driveChromeOnlyHint": {
+    "message": "Chrome browser only",
+    "description": "Drive backup Chrome-only notice"
+  },
+  "driveBackupLoading": {
+    "message": "Loading cloud backup status…",
+    "description": "Drive backup loading status"
+  },
+  "driveConnect": {
+    "message": "Connect Google",
+    "description": "Connect Google Drive button"
+  },
+  "driveDisconnect": {
+    "message": "Disconnect",
+    "description": "Disconnect Google Drive button"
+  },
+  "driveUpload": {
+    "message": "Backup to Drive",
+    "description": "Upload backup to Drive button"
+  },
+  "driveRefreshList": {
+    "message": "Refresh list",
+    "description": "Refresh backup list button"
+  },
+  "driveOpenBackupList": {
+    "message": "View backups",
+    "description": "Open backup list modal button"
+  },
+  "driveOpenBackupListCount": {
+    "message": "View backups ($1)",
+    "description": "Open backup list with count",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "driveModalTitle": {
+    "message": "Cloud backups",
+    "description": "Drive backup modal title"
+  },
+  "driveModalClose": {
+    "message": "Close",
+    "description": "Close drive modal"
+  },
+  "driveModalLoading": {
+    "message": "Loading backups…",
+    "description": "Drive modal loading"
+  },
+  "driveBackupListTitle": {
+    "message": "Backup history",
+    "description": "Backup list section title (legacy)"
+  },
+  "driveRestoreSelected": {
+    "message": "Restore",
+    "description": "Restore selected backup button"
+  },
+  "driveDeleteSelected": {
+    "message": "Delete",
+    "description": "Delete selected backup button"
+  },
+  "driveBackupListEmpty": {
+    "message": "No cloud backups yet. Click Backup to Drive first.",
+    "description": "Empty backup list message"
+  },
+  "driveBackupCount": {
+    "message": "$1 cloud backup(s)",
+    "description": "Number of cloud backups",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "driveBackupItemMeta": {
+    "message": "Size: $1",
+    "description": "Backup list item size",
+    "placeholders": {
+      "size": {
+        "content": "$1",
+        "example": "12 KB"
+      }
+    }
+  },
+  "driveSelectBackupFirst": {
+    "message": "Select a backup from the list first",
+    "description": "No backup selected prompt"
+  },
+  "driveDeleteConfirm": {
+    "message": "Delete the selected cloud backup? This cannot be undone.",
+    "description": "Delete backup confirm"
+  },
+  "driveDeleteConfirmTitle": {
+    "message": "Confirm delete backup",
+    "description": "Delete backup confirm title"
+  },
+  "driveDeleteSuccess": {
+    "message": "Cloud backup deleted",
+    "description": "Delete backup success"
+  },
+  "driveDeleteFailed": {
+    "message": "Failed to delete backup: $1",
+    "description": "Delete backup failed",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "error"
+      }
+    }
+  },
+  "driveBackupHelp": {
+    "message": "Backups are stored in Google's hidden app data folder (like Tampermonkey), not in My Drive. Up to 30 backups are kept.",
+    "description": "Drive backup help"
+  },
+  "driveSetupHint": {
+    "message": "First-time setup: create a Google OAuth client (Chrome Extension) in Google Cloud Console, set the Client ID in manifest.json, and enable Google Drive API. See GOOGLE_DRIVE_SETUP.md.",
+    "description": "Drive OAuth setup hint"
+  },
+  "driveNotConfigured": {
+    "message": "Google OAuth Client ID is not configured (edit manifest.json)",
+    "description": "Drive OAuth not configured"
+  },
+  "driveNotConnected": {
+    "message": "Connect your Google account to back up and restore settings.",
+    "description": "Drive not connected"
+  },
+  "driveConnected": {
+    "message": "Connected: $1.",
+    "description": "Drive connected status",
+    "placeholders": {
+      "email": {
+        "content": "$1",
+        "example": "user@gmail.com"
+      }
+    }
+  },
+  "driveConnectedUnknown": {
+    "message": "Google account",
+    "description": "Unknown Google account label"
+  },
+  "driveLastBackup": {
+    "message": "Last backup: $1",
+    "description": "Last backup time",
+    "placeholders": {
+      "time": {
+        "content": "$1",
+        "example": "2024-01-01"
+      }
+    }
+  },
+  "driveNeverBackedUp": {
+    "message": "No cloud backup yet",
+    "description": "Never backed up to drive"
+  },
+  "driveConnectSuccess": {
+    "message": "Connected to Google Drive",
+    "description": "Drive connect success"
+  },
+  "driveDisconnectSuccess": {
+    "message": "Disconnected from Google Drive",
+    "description": "Drive disconnect success"
+  },
+  "driveUploadSuccess": {
+    "message": "Backed up to Google Drive",
+    "description": "Drive upload success"
+  },
+  "driveUploadFailed": {
+    "message": "Cloud backup failed: $1",
+    "description": "Drive upload failed",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "error"
+      }
+    }
+  },
+  "driveRestoreSuccess": {
+    "message": "Settings restored from Google Drive",
+    "description": "Drive restore success"
+  },
+  "driveRestoreFailed": {
+    "message": "Cloud restore failed: $1",
+    "description": "Cloud restore failed",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "error"
+      }
+    }
+  },
+  "driveRestoreConfirm": {
+    "message": "Restore settings from Google Drive?<br>This will overwrite local settings.",
+    "description": "Drive restore confirm"
+  },
+  "driveRestoreConfirmTitle": {
+    "message": "Confirm cloud restore",
+    "description": "Drive restore confirm title"
+  },
+  "driveAuthTokenFailed": {
+    "message": "Failed to obtain Google authorization",
+    "description": "Drive auth token error"
+  },
+  "driveBackupEmpty": {
+    "message": "Backup content is empty",
+    "description": "Drive backup empty content"
+  },
+  "driveMissingFileId": {
+    "message": "Missing file ID",
+    "description": "Drive missing file id"
+  },
+  "driveMissingBackupId": {
+    "message": "Missing backup file ID",
+    "description": "Drive restore missing file id"
+  },
+  "driveImportInvalidFormat": {
+    "message": "Invalid import data format",
+    "description": "Drive import invalid format"
+  },
+  "driveImportMissingVersion": {
+    "message": "Missing version information",
+    "description": "Drive import missing version"
+  },
   "exportSuccess": {
     "message": "Settings exported successfully",
     "description": "Export success message"
@@ -526,8 +754,7 @@
   "enableAutoFollowHint": {
     "message": "Tip: To auto-fetch followed streamers, enable 'Auto Tracking' in Settings",
     "description": "Hint after authorization to enable auto follow in settings"
-  }
-  ,
+  },
   "autoFollowPromptTitle": {
     "message": "Enable Auto Tracking?",
     "description": "Prompt title for enabling auto follow"
@@ -539,8 +766,7 @@
   "enableAction": {
     "message": "Enable",
     "description": "Enable action label"
-  }
-  ,
+  },
   "chatTranslationSettings": {
     "message": "Chat Translation Settings",
     "description": "Chat translation settings section title"
@@ -568,9 +794,7 @@
   "translationRefreshHint": {
     "message": "After changing translation settings, refresh the Twitch page for changes to take effect.",
     "description": "Hint to refresh page after changing translation settings"
-  }
-  ,
-  
+  },
   "accountCreatedAt": {
     "message": "Account created: $1",
     "description": "Account created at with localized date",
@@ -580,43 +804,63 @@
         "example": "Aug 19, 2018 5:44:31 PM"
       }
     }
-  }
-  ,
+  },
   "followAgeYearsDays": {
-  "message": "Following for $1 year $2 day",
+    "message": "Following for $1 year $2 day",
     "description": "Follow age with years and days",
     "placeholders": {
-      "years": { "content": "$1", "example": "2" },
-      "days": { "content": "$2", "example": "35" }
+      "years": {
+        "content": "$1",
+        "example": "2"
+      },
+      "days": {
+        "content": "$2",
+        "example": "35"
+      }
     }
   },
   "followAgeYearsOnly": {
-  "message": "Following for $1 year",
+    "message": "Following for $1 year",
     "description": "Follow age with years only",
     "placeholders": {
-      "years": { "content": "$1", "example": "3" }
+      "years": {
+        "content": "$1",
+        "example": "3"
+      }
     }
   },
   "followAgeDaysOnly": {
-  "message": "Following for $1 day",
+    "message": "Following for $1 day",
     "description": "Follow age with days only",
     "placeholders": {
-      "days": { "content": "$1", "example": "120" }
+      "days": {
+        "content": "$1",
+        "example": "120"
+      }
     }
   },
   "syncComplete": {
     "message": "Sync complete! Added $1 channels, removed $2 channels",
     "description": "Sync complete message with additions and removals",
     "placeholders": {
-      "added": { "content": "$1", "example": "2" },
-      "removed": { "content": "$2", "example": "1" }
+      "added": {
+        "content": "$1",
+        "example": "2"
+      },
+      "removed": {
+        "content": "$2",
+        "example": "1"
+      }
     }
   },
   "removedChannels": {
     "message": "Removed $1 unfollowed channels",
     "description": "Removed channels message",
     "placeholders": {
-      "count": { "content": "$1", "example": "3" }
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
     }
   },
   "useKDisplay": {
@@ -639,7 +883,10 @@
     "message": "Error loading VODs: $1",
     "description": "Error message when loading VODs fails",
     "placeholders": {
-      "error": { "content": "$1", "example": "Unknown error" }
+      "error": {
+        "content": "$1",
+        "example": "Unknown error"
+      }
     }
   },
   "noVodsFoundForChannel": {
@@ -658,28 +905,34 @@
     "message": "$1 days ago",
     "description": "Relative date: N days ago",
     "placeholders": {
-      "days": { "content": "$1", "example": "3" }
+      "days": {
+        "content": "$1",
+        "example": "3"
+      }
     }
-  }
-  ,
+  },
   "goToChannel": {
     "message": "Channel",
     "description": "Go to channel button"
-  }
-  ,
+  },
   "followAgeHoursMinutes": {
     "message": "Following for $1 hours $2 minutes",
     "description": "Follow age when under 1 day",
     "placeholders": {
-      "hours": { "content": "$1", "example": "3" },
-      "minutes": { "content": "$2", "example": "15" }
+      "hours": {
+        "content": "$1",
+        "example": "3"
+      },
+      "minutes": {
+        "content": "$2",
+        "example": "15"
+      }
     }
   },
   "followingFor": {
     "message": "Following for",
     "description": "Prefix used when building follow age fallback"
-  }
-  ,
+  },
   "loadingMoreVods": {
     "message": "Loading more...",
     "description": "Status while loading more VODs"
@@ -687,13 +940,11 @@
   "noMoreVods": {
     "message": "You've reached the end",
     "description": "Status when no more VODs"
-  }
-  ,
+  },
   "favoriteShort": {
     "message": "Fav",
     "description": "Favorites short label"
-  }
-  ,
+  },
   "subscriberOnly": {
     "message": "Sub",
     "description": "Badge label for subscriber-only videos"

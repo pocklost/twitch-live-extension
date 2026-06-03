@@ -10,7 +10,7 @@ Notify you when selected Twitch streamers go live, and show live stream informat
 - 👥 Track and manage multiple streamers at once
 - 🔐 Official Twitch OAuth flow (no manual credentials required)
 - 🌍 Localization: zh-TW, zh-CN, en, ja, ko
-- 💾 Settings backup (export/import)
+- 💾 Settings backup (export/import JSON, Google Drive sync)
 
 ## 🚀 Install & Use
 
@@ -21,10 +21,10 @@ Notify you when selected Twitch streamers go live, and show live stream informat
 
 ## ⚙️ Settings
 
-- Mute notifications, hide offline streamers, hide previews
+- Mute notifications, hide previews
 - Check interval (minutes)
 - Per-channel notification selection (in auto-sync mode)
-- Backup: export/import settings
+- Backup: export/import settings, or sync to Google Drive ([setup](GOOGLE_DRIVE_SETUP.md))
 
 ## 🔒 Permissions & Privacy
 

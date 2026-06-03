@@ -383,7 +383,6 @@
     "message": "频道管理",
     "description": "Channel management title"
   },
-  
   "addedOn": {
     "message": "添加于",
     "description": "Added on label"
@@ -468,6 +467,234 @@
     "message": "导出设置到文件，或从文件导入设置",
     "description": "Settings backup help text"
   },
+  "driveBackupTitle": {
+    "message": "Google Drive 云端备份",
+    "description": "Google Drive backup section title"
+  },
+  "driveChromeOnlyHint": {
+    "message": "仅限 Chrome 浏览器",
+    "description": "Drive backup Chrome-only notice"
+  },
+  "driveBackupLoading": {
+    "message": "正在加载云端备份状态…",
+    "description": "Drive backup loading status"
+  },
+  "driveConnect": {
+    "message": "连接 Google",
+    "description": "Connect Google Drive button"
+  },
+  "driveDisconnect": {
+    "message": "断开连接",
+    "description": "Disconnect Google Drive button"
+  },
+  "driveUpload": {
+    "message": "创建云端备份",
+    "description": "Upload backup to Drive button"
+  },
+  "driveRefreshList": {
+    "message": "刷新",
+    "description": "Refresh backup list button"
+  },
+  "driveOpenBackupList": {
+    "message": "查看备份记录",
+    "description": "Open backup list modal button"
+  },
+  "driveOpenBackupListCount": {
+    "message": "查看备份记录（$1 条）",
+    "description": "Open backup list with count",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "driveModalTitle": {
+    "message": "云端备份记录",
+    "description": "Drive backup modal title"
+  },
+  "driveModalClose": {
+    "message": "关闭",
+    "description": "Close drive modal"
+  },
+  "driveModalLoading": {
+    "message": "正在加载备份列表…",
+    "description": "Drive modal loading"
+  },
+  "driveBackupListTitle": {
+    "message": "备份记录",
+    "description": "Backup list section title (legacy)"
+  },
+  "driveRestoreSelected": {
+    "message": "还原",
+    "description": "Restore selected backup button"
+  },
+  "driveDeleteSelected": {
+    "message": "删除",
+    "description": "Delete selected backup button"
+  },
+  "driveBackupListEmpty": {
+    "message": "尚无云端备份，请先点击「创建云端备份」。",
+    "description": "Empty backup list message"
+  },
+  "driveBackupCount": {
+    "message": "云端备份 $1 条",
+    "description": "Number of cloud backups",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "driveBackupItemMeta": {
+    "message": "大小：$1",
+    "description": "Backup list item size",
+    "placeholders": {
+      "size": {
+        "content": "$1",
+        "example": "12 KB"
+      }
+    }
+  },
+  "driveSelectBackupFirst": {
+    "message": "请先从列表选择一笔备份",
+    "description": "No backup selected prompt"
+  },
+  "driveDeleteConfirm": {
+    "message": "确定要删除所选的云端备份吗？此操作无法撤销。",
+    "description": "Delete backup confirm"
+  },
+  "driveDeleteConfirmTitle": {
+    "message": "确认删除备份",
+    "description": "Delete backup confirm title"
+  },
+  "driveDeleteSuccess": {
+    "message": "已删除云端备份",
+    "description": "Delete backup success"
+  },
+  "driveDeleteFailed": {
+    "message": "删除备份失败：$1",
+    "description": "Delete backup failed",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "error"
+      }
+    }
+  },
+  "driveBackupHelp": {
+    "message": "备份存放在 Google 隐藏应用数据区（与 Tampermonkey 相同），不会出现在「我的云端硬盘」文件夹。最多保留 30 条备份。",
+    "description": "Drive backup help"
+  },
+  "driveSetupHint": {
+    "message": "首次使用请在 Google Cloud Console 创建 OAuth 客户端（类型：Chrome 扩展程序），并在 manifest.json 填入 Client ID，同时启用 Google Drive API。详见 GOOGLE_DRIVE_SETUP.md。",
+    "description": "Drive OAuth setup hint"
+  },
+  "driveNotConfigured": {
+    "message": "尚未配置 Google OAuth Client ID（请编辑 manifest.json）",
+    "description": "Drive OAuth not configured"
+  },
+  "driveNotConnected": {
+    "message": "连接 Google 账号后，即可备份与还原设置",
+    "description": "Drive not connected"
+  },
+  "driveConnected": {
+    "message": "已连接：$1。",
+    "description": "Drive connected status",
+    "placeholders": {
+      "email": {
+        "content": "$1",
+        "example": "user@gmail.com"
+      }
+    }
+  },
+  "driveConnectedUnknown": {
+    "message": "Google 账号",
+    "description": "Unknown Google account label"
+  },
+  "driveLastBackup": {
+    "message": "上次备份：$1",
+    "description": "Last backup time",
+    "placeholders": {
+      "time": {
+        "content": "$1",
+        "example": "2024/1/1 12:00:00"
+      }
+    }
+  },
+  "driveNeverBackedUp": {
+    "message": "尚无云端备份",
+    "description": "Never backed up to drive"
+  },
+  "driveConnectSuccess": {
+    "message": "已成功连接 Google Drive",
+    "description": "Drive connect success"
+  },
+  "driveDisconnectSuccess": {
+    "message": "已断开 Google Drive 连接",
+    "description": "Drive disconnect success"
+  },
+  "driveUploadSuccess": {
+    "message": "已备份到 Google Drive",
+    "description": "Drive upload success"
+  },
+  "driveUploadFailed": {
+    "message": "云端备份失败：$1",
+    "description": "Drive upload failed",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "error"
+      }
+    }
+  },
+  "driveRestoreSuccess": {
+    "message": "已从 Google Drive 还原设置",
+    "description": "Drive restore success"
+  },
+  "driveRestoreFailed": {
+    "message": "云端还原失败：$1",
+    "description": "Drive restore failed",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "error"
+      }
+    }
+  },
+  "driveRestoreConfirm": {
+    "message": "确定要从 Google Drive 还原设置吗？<br>这将覆盖现有的本地设置。",
+    "description": "Drive restore confirm"
+  },
+  "driveRestoreConfirmTitle": {
+    "message": "确认从云端还原",
+    "description": "Drive restore confirm title"
+  },
+  "driveAuthTokenFailed": {
+    "message": "无法取得 Google 授权",
+    "description": "Drive auth token error"
+  },
+  "driveBackupEmpty": {
+    "message": "备份内容为空",
+    "description": "Drive backup empty content"
+  },
+  "driveMissingFileId": {
+    "message": "缺少文件 ID",
+    "description": "Drive missing file id"
+  },
+  "driveMissingBackupId": {
+    "message": "缺少备份文件 ID",
+    "description": "Drive restore missing file id"
+  },
+  "driveImportInvalidFormat": {
+    "message": "导入数据格式无效",
+    "description": "Drive import invalid format"
+  },
+  "driveImportMissingVersion": {
+    "message": "缺少版本信息",
+    "description": "Drive import missing version"
+  },
   "exportSuccess": {
     "message": "设置已成功导出",
     "description": "Export success message"
@@ -527,8 +754,7 @@
   "enableAutoFollowHint": {
     "message": "提示：若需自动抓取追踪，请到设置页面开启“自动追踪”",
     "description": "Hint after authorization to enable auto follow in settings"
-  }
-  ,
+  },
   "autoFollowPromptTitle": {
     "message": "启用自动追踪？",
     "description": "Prompt title for enabling auto follow"
@@ -540,8 +766,7 @@
   "enableAction": {
     "message": "启用",
     "description": "Enable action label"
-  }
-  ,
+  },
   "chatTranslationSettings": {
     "message": "聊天室翻译设置",
     "description": "Chat translation settings section title"
@@ -569,8 +794,7 @@
   "translationRefreshHint": {
     "message": "更改翻译设置后，请刷新 Twitch 页面以生效。",
     "description": "Hint to refresh page after changing translation settings"
-  }
-  ,
+  },
   "accountCreatedAt": {
     "message": "账号创建：$1",
     "description": "Account created at with localized date",
@@ -580,43 +804,63 @@
         "example": "2018/8/19 下午5:44:31"
       }
     }
-  }
-  ,
+  },
   "followAgeYearsDays": {
     "message": "已关注 $1 年 $2 天",
     "description": "Follow age with years and days",
     "placeholders": {
-      "years": { "content": "$1", "example": "2" },
-      "days": { "content": "$2", "example": "35" }
+      "years": {
+        "content": "$1",
+        "example": "2"
+      },
+      "days": {
+        "content": "$2",
+        "example": "35"
+      }
     }
   },
   "followAgeYearsOnly": {
     "message": "已关注 $1 年",
     "description": "Follow age with years only",
     "placeholders": {
-      "years": { "content": "$1", "example": "3" }
+      "years": {
+        "content": "$1",
+        "example": "3"
+      }
     }
   },
   "followAgeDaysOnly": {
     "message": "已关注 $1 天",
     "description": "Follow age with days only",
     "placeholders": {
-      "days": { "content": "$1", "example": "120" }
+      "days": {
+        "content": "$1",
+        "example": "120"
+      }
     }
   },
   "syncComplete": {
     "message": "同步完成！新增 $1 个频道，移除 $2 个频道",
     "description": "Sync complete message with additions and removals",
     "placeholders": {
-      "added": { "content": "$1", "example": "2" },
-      "removed": { "content": "$2", "example": "1" }
+      "added": {
+        "content": "$1",
+        "example": "2"
+      },
+      "removed": {
+        "content": "$2",
+        "example": "1"
+      }
     }
   },
   "removedChannels": {
     "message": "已移除 $1 个取消关注的频道",
     "description": "Removed channels message",
     "placeholders": {
-      "count": { "content": "$1", "example": "3" }
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
     }
   },
   "useKDisplay": {
@@ -639,7 +883,10 @@
     "message": "载入直播记录出错：$1",
     "description": "载入 VODs 失败时的错误信息",
     "placeholders": {
-      "error": { "content": "$1", "example": "未知错误" }
+      "error": {
+        "content": "$1",
+        "example": "未知错误"
+      }
     }
   },
   "noVodsFoundForChannel": {
@@ -658,28 +905,34 @@
     "message": "$1 天前",
     "description": "相对日期：N 天前",
     "placeholders": {
-      "days": { "content": "$1", "example": "3" }
+      "days": {
+        "content": "$1",
+        "example": "3"
+      }
     }
-  }
-  ,
+  },
   "goToChannel": {
     "message": "频道",
     "description": "前往频道按钮"
-  }
-  ,
+  },
   "followAgeHoursMinutes": {
     "message": "已关注 $1 小时 $2 分钟",
     "description": "少于一天时的关注时长显示",
     "placeholders": {
-      "hours": { "content": "$1", "example": "3" },
-      "minutes": { "content": "$2", "example": "15" }
+      "hours": {
+        "content": "$1",
+        "example": "3"
+      },
+      "minutes": {
+        "content": "$2",
+        "example": "15"
+      }
     }
   },
   "followingFor": {
     "message": "已关注",
     "description": "关注时长前缀（后备）"
-  }
-  ,
+  },
   "loadingMoreVods": {
     "message": "载入更多...",
     "description": "载入更多 VOD 状态"
@@ -687,13 +940,11 @@
   "noMoreVods": {
     "message": "到底了",
     "description": "没有更多 VOD"
-  }
-  ,
+  },
   "favoriteShort": {
     "message": "我的最爱",
     "description": "收藏短字"
-  }
-  ,
+  },
   "subscriberOnly": {
     "message": "订阅",
     "description": "订阅者限定视频徽章"

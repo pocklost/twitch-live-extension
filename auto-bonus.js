@@ -1,7 +1,33 @@
 (() => {
+  const POLL_MS = 4000;
+  const POLL_HIDDEN_MS = 12000;
+
   const run = () => {
-    const check = () => document.querySelector('.claimable-bonus__icon')?.click();
-    new MutationObserver(check).observe(document.body, { childList: true, subtree: true });
+    const check = () => {
+      document.querySelector('.claimable-bonus__icon')?.click();
+    };
+
+    let intervalMs = POLL_MS;
+
+    const schedule = () => {
+      clearInterval(timer);
+      intervalMs = document.hidden ? POLL_HIDDEN_MS : POLL_MS;
+      timer = setInterval(() => {
+        if (document.hidden) return;
+        check();
+      }, intervalMs);
+    };
+
+    let timer;
+    check();
+    schedule();
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        check();
+      }
+      schedule();
+    });
   };
 
   const startIfEnabled = () => {
@@ -17,5 +43,3 @@
     startIfEnabled();
   }
 })();
-
-

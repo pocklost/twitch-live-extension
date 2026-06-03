@@ -5,7 +5,8 @@
 const CONFIG = {
 	ANIMATION_DURATION: 2000,
 	UPDATE_INTERVAL: 30000,
-	PAGE_CHECK_INTERVAL: 1500,
+	PAGE_CHECK_INTERVAL: 3000,
+	ROUTE_DEBOUNCE_MS: 400,
 	CARD_DELAY: 600,
 	CLICK_FEEDBACK_DURATION: 250,
 };
@@ -232,15 +233,135 @@ const cardHandler = {
 };
 
 // ============ API 層 ============
+const TWITCH_GQL_CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko';
+const BRIDGE_REQUEST = 'tsn-chatters-request';
+const BRIDGE_RESPONSE = 'tsn-chatters-response';
+const BRIDGE_TIMEOUT_MS = 12000;
+
 const api = {
 	fetchChattersCount: async (channel) => {
-		const query = api.buildQuery();
-		const response = await api.executeQuery(query, { name: channel });
+		const errors = [];
 
+		for (const fetcher of [api.fetchViaGql, api.fetchViaExtension, api.fetchViaApollo]) {
+			try {
+				const count = await fetcher(channel);
+				if (count != null && !Number.isNaN(Number(count))) {
+					return utils.formatNumber(count);
+				}
+			} catch (err) {
+				errors.push(err);
+			}
+		}
+
+		if (errors.length) {
+			throw errors[0];
+		}
+
+		return 'N/A';
+	},
+
+	fetchViaGql: async (channel) => {
+		const login = String(channel || '').trim().toLowerCase();
+		if (!login) {
+			throw new Error('Invalid channel');
+		}
+
+		const response = await fetch('https://gql.twitch.tv/gql', {
+			method: 'POST',
+			headers: {
+				'Client-ID': TWITCH_GQL_CLIENT_ID,
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				operationName: 'GetChannelChattersCount',
+				variables: { name: login },
+				query:
+					'query GetChannelChattersCount($name: String!) {\n' +
+					'  channel(name: $name) {\n' +
+					'    chatters {\n' +
+					'      count\n' +
+					'    }\n' +
+					'  }\n' +
+					'}'
+			})
+		});
+
+		if (!response.ok) {
+			throw new Error(`GQL HTTP ${response.status}`);
+		}
+
+		const json = await response.json();
+		if (Array.isArray(json?.errors) && json.errors.length > 0) {
+			throw new Error(json.errors[0]?.message || 'GQL error');
+		}
+
+		const count = json?.data?.channel?.chatters?.count;
+		if (count == null || Number.isNaN(Number(count))) {
+			throw new Error('Chatters count unavailable');
+		}
+
+		return Number(count);
+	},
+
+	fetchViaExtension: (channel) => new Promise((resolve, reject) => {
+		const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+		const MSG_SOURCE_PAGE = 'tsn-chatters-page';
+		const MSG_SOURCE_CONTENT = 'tsn-chatters-content';
+		let settled = false;
+
+		const onResponse = (event) => {
+			if (event.source !== window || !event.data) return;
+			if (event.data.source !== MSG_SOURCE_CONTENT) return;
+			if (event.data.type !== BRIDGE_RESPONSE) return;
+			if (event.data.requestId !== requestId) return;
+
+			window.removeEventListener('message', onResponse);
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+
+			if (event.data.error) {
+				reject(new Error(event.data.error));
+				return;
+			}
+
+			const value = event.data.count;
+			if (value == null || Number.isNaN(Number(value))) {
+				reject(new Error('Chatters count unavailable'));
+				return;
+			}
+
+			resolve(Number(value));
+		};
+
+		const timer = setTimeout(() => {
+			if (settled) return;
+			settled = true;
+			window.removeEventListener('message', onResponse);
+			reject(new Error('Chatters fetch timeout'));
+		}, BRIDGE_TIMEOUT_MS);
+
+		window.addEventListener('message', onResponse);
+		window.postMessage(
+			{
+				source: MSG_SOURCE_PAGE,
+				type: BRIDGE_REQUEST,
+				requestId,
+				channel
+			},
+			'*'
+		);
+	}),
+
+	fetchViaApollo: async (channel) => {
+		const query = api.buildQuery();
+		const login = String(channel || '').trim().toLowerCase();
+		const response = await api.executeQuery(query, { name: login });
 		const count = response?.data?.channel?.chatters?.count;
-		return (count != null && !isNaN(count))
-			? utils.formatNumber(count)
-			: 'N/A';
+		if (count == null || Number.isNaN(Number(count))) {
+			throw new Error('Chatters count unavailable');
+		}
+		return Number(count);
 	},
 
 	buildQuery: () => ({
@@ -297,9 +418,17 @@ const api = {
 	executeQuery: async (query, variables) => {
 		const client = getApolloClient();
 		if (!client) throw new Error('Apollo client not found');
-		return client.query({ query, variables });
+		try {
+			return await client.query({ query, variables });
+		} catch (err) {
+			invalidateApolloClient();
+			throw err;
+		}
 	},
 };
+
+let cachedApolloClient = null;
+let routeDebounceTimer = null;
 
 // ============ 路由與定時器管理 ============
 const router = {
@@ -323,6 +452,7 @@ const router = {
 	switchChannel: (newChannel) => {
 		state.channel = newChannel;
 		state.cachedCount = '⏳';
+		invalidateApolloClient();
 
 		if (state.updateTimer) {
 			clearInterval(state.updateTimer);
@@ -343,17 +473,29 @@ const router = {
 
 	ensureTimerRunning: () => {
 		if (state.updateTimer) return;
+		if (document.hidden) return;
 
 		counterActions.refreshAll();
-		state.updateTimer = setInterval(
-			counterActions.refreshAll,
-			CONFIG.UPDATE_INTERVAL
-		);
+		state.updateTimer = setInterval(() => {
+			if (!document.hidden) {
+				counterActions.refreshAll();
+			}
+		}, CONFIG.UPDATE_INTERVAL);
+	},
+
+	schedulePageCheck: () => {
+		if (routeDebounceTimer) {
+			clearTimeout(routeDebounceTimer);
+		}
+		routeDebounceTimer = setTimeout(() => {
+			routeDebounceTimer = null;
+			router.handlePageChange();
+		}, CONFIG.ROUTE_DEBOUNCE_MS);
 	},
 };
 
 // ============ Apollo Client 獲取 ============
-function searchReactChildren(node, predicate, maxDepth = 15, depth = 0) {
+function searchReactChildren(node, predicate, maxDepth = 30, depth = 0) {
 	try {
 		if (predicate(node)) return node;
 	} catch (_) {}
@@ -380,21 +522,48 @@ function getReactRoot(element) {
 	return null;
 }
 
+function invalidateApolloClient() {
+	cachedApolloClient = null;
+}
+
 function getApolloClient() {
-	let client;
+	if (cachedApolloClient) {
+		return cachedApolloClient;
+	}
+
 	try {
-		const reactRoot = getReactRoot(document.getElementById('root'));
-		const node = searchReactChildren(
-			reactRoot?._internalRoot?.current ?? reactRoot,
-			(n) => n.pendingProps?.value?.client
-		);
-		client = node.pendingProps.value.client;
-	} catch (_) {}
-	return client;
+		const rootEl = document.getElementById('root');
+		const reactRoot = getReactRoot(rootEl);
+		const startNode = reactRoot?._internalRoot?.current ?? reactRoot?.current ?? reactRoot;
+		const node = searchReactChildren(startNode, (n) => {
+			const props = n?.memoizedProps || n?.pendingProps;
+			const client = props?.value?.client || props?.client;
+			return !!(client?.query);
+		});
+
+		if (node) {
+			const props = node.memoizedProps || node.pendingProps;
+			cachedApolloClient = props?.value?.client || props?.client || null;
+		}
+	} catch (_) {
+		cachedApolloClient = null;
+	}
+
+	return cachedApolloClient;
 }
 
 // ============ 初始化 ============
-setInterval(router.handlePageChange, CONFIG.PAGE_CHECK_INTERVAL);
+setInterval(() => {
+	if (!document.hidden) {
+		router.schedulePageCheck();
+	}
+}, CONFIG.PAGE_CHECK_INTERVAL);
+
+document.addEventListener('visibilitychange', () => {
+	if (!document.hidden) {
+		router.schedulePageCheck();
+	}
+});
 
 })();
 

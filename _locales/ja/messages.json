@@ -383,7 +383,6 @@
     "message": "チャンネル管理",
     "description": "Channel management title"
   },
-  
   "addedOn": {
     "message": "追加日",
     "description": "Added on label"
@@ -468,6 +467,234 @@
     "message": "設定をファイルにエクスポート、またはファイルからインポート",
     "description": "Settings backup help text"
   },
+  "driveBackupTitle": {
+    "message": "Google Drive クラウドバックアップ",
+    "description": "Google Drive backup section title"
+  },
+  "driveChromeOnlyHint": {
+    "message": "Chrome ブラウザのみ対応",
+    "description": "Drive backup Chrome-only notice"
+  },
+  "driveBackupLoading": {
+    "message": "クラウドバックアップの状態を読み込み中…",
+    "description": "Drive backup loading status"
+  },
+  "driveConnect": {
+    "message": "Googleと連携",
+    "description": "Connect Google Drive button"
+  },
+  "driveDisconnect": {
+    "message": "連携を解除",
+    "description": "Disconnect Google Drive button"
+  },
+  "driveUpload": {
+    "message": "クラウドにバックアップ",
+    "description": "Upload backup to Drive button"
+  },
+  "driveRefreshList": {
+    "message": "更新",
+    "description": "Refresh backup list button"
+  },
+  "driveOpenBackupList": {
+    "message": "バックアップ履歴を表示",
+    "description": "Open backup list modal button"
+  },
+  "driveOpenBackupListCount": {
+    "message": "バックアップ履歴を表示（$1件）",
+    "description": "Open backup list with count",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "driveModalTitle": {
+    "message": "クラウドバックアップ履歴",
+    "description": "Drive backup modal title"
+  },
+  "driveModalClose": {
+    "message": "閉じる",
+    "description": "Close drive modal"
+  },
+  "driveModalLoading": {
+    "message": "バックアップ一覧を読み込み中…",
+    "description": "Drive modal loading"
+  },
+  "driveBackupListTitle": {
+    "message": "バックアップ履歴",
+    "description": "Backup list section title (legacy)"
+  },
+  "driveRestoreSelected": {
+    "message": "復元",
+    "description": "Restore selected backup button"
+  },
+  "driveDeleteSelected": {
+    "message": "削除",
+    "description": "Delete selected backup button"
+  },
+  "driveBackupListEmpty": {
+    "message": "クラウドバックアップがありません。先に「クラウドにバックアップ」を押してください。",
+    "description": "Empty backup list message"
+  },
+  "driveBackupCount": {
+    "message": "クラウドバックアップ $1件",
+    "description": "Number of cloud backups",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "driveBackupItemMeta": {
+    "message": "サイズ：$1",
+    "description": "Backup list item size",
+    "placeholders": {
+      "size": {
+        "content": "$1",
+        "example": "12 KB"
+      }
+    }
+  },
+  "driveSelectBackupFirst": {
+    "message": "一覧からバックアップを選択してください",
+    "description": "No backup selected prompt"
+  },
+  "driveDeleteConfirm": {
+    "message": "選択したクラウドバックアップを削除しますか？この操作は元に戻せません。",
+    "description": "Delete backup confirm"
+  },
+  "driveDeleteConfirmTitle": {
+    "message": "バックアップ削除の確認",
+    "description": "Delete backup confirm title"
+  },
+  "driveDeleteSuccess": {
+    "message": "クラウドバックアップを削除しました",
+    "description": "Delete backup success"
+  },
+  "driveDeleteFailed": {
+    "message": "バックアップの削除に失敗しました：$1",
+    "description": "Delete backup failed",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "error"
+      }
+    }
+  },
+  "driveBackupHelp": {
+    "message": "バックアップは Google の非表示アプリデータ領域に保存され、「マイドライブ」には表示されません。最大30件まで保持されます。",
+    "description": "Drive backup help"
+  },
+  "driveSetupHint": {
+    "message": "初回設定：Google Cloud Console で OAuth クライアント（Chrome 拡張機能）を作成し、manifest.json に Client ID を設定し、Google Drive API を有効にしてください。詳細は GOOGLE_DRIVE_SETUP.md を参照。",
+    "description": "Drive OAuth setup hint"
+  },
+  "driveNotConfigured": {
+    "message": "Google OAuth Client ID が未設定です（manifest.json を編集してください）",
+    "description": "Drive OAuth not configured"
+  },
+  "driveNotConnected": {
+    "message": "Google アカウントを連携すると、設定のバックアップと復元ができます",
+    "description": "Drive not connected"
+  },
+  "driveConnected": {
+    "message": "連携済み：$1。",
+    "description": "Drive connected status",
+    "placeholders": {
+      "email": {
+        "content": "$1",
+        "example": "user@gmail.com"
+      }
+    }
+  },
+  "driveConnectedUnknown": {
+    "message": "Google アカウント",
+    "description": "Unknown Google account label"
+  },
+  "driveLastBackup": {
+    "message": "前回のバックアップ：$1",
+    "description": "Last backup time",
+    "placeholders": {
+      "time": {
+        "content": "$1",
+        "example": "2024/1/1 12:00:00"
+      }
+    }
+  },
+  "driveNeverBackedUp": {
+    "message": "クラウドバックアップはまだありません",
+    "description": "Never backed up to drive"
+  },
+  "driveConnectSuccess": {
+    "message": "Google Drive に連携しました",
+    "description": "Drive connect success"
+  },
+  "driveDisconnectSuccess": {
+    "message": "Google Drive の連携を解除しました",
+    "description": "Drive disconnect success"
+  },
+  "driveUploadSuccess": {
+    "message": "Google Drive にバックアップしました",
+    "description": "Drive upload success"
+  },
+  "driveUploadFailed": {
+    "message": "クラウドバックアップに失敗しました：$1",
+    "description": "Drive upload failed",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "error"
+      }
+    }
+  },
+  "driveRestoreSuccess": {
+    "message": "Google Drive から設定を復元しました",
+    "description": "Drive restore success"
+  },
+  "driveRestoreFailed": {
+    "message": "クラウド復元に失敗しました：$1",
+    "description": "Drive restore failed",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "error"
+      }
+    }
+  },
+  "driveRestoreConfirm": {
+    "message": "Google Drive から設定を復元しますか？<br>現在のローカル設定は上書きされます。",
+    "description": "Drive restore confirm"
+  },
+  "driveRestoreConfirmTitle": {
+    "message": "クラウド復元の確認",
+    "description": "Drive restore confirm title"
+  },
+  "driveAuthTokenFailed": {
+    "message": "Google の認証を取得できませんでした",
+    "description": "Drive auth token error"
+  },
+  "driveBackupEmpty": {
+    "message": "バックアップの内容が空です",
+    "description": "Drive backup empty content"
+  },
+  "driveMissingFileId": {
+    "message": "ファイル ID がありません",
+    "description": "Drive missing file id"
+  },
+  "driveMissingBackupId": {
+    "message": "バックアップファイル ID がありません",
+    "description": "Drive restore missing file id"
+  },
+  "driveImportInvalidFormat": {
+    "message": "インポートデータの形式が無効です",
+    "description": "Drive import invalid format"
+  },
+  "driveImportMissingVersion": {
+    "message": "バージョン情報がありません",
+    "description": "Drive import missing version"
+  },
   "exportSuccess": {
     "message": "設定が正常にエクスポートされました",
     "description": "Export success message"
@@ -527,8 +754,7 @@
   "enableAutoFollowHint": {
     "message": "ヒント：フォロー中のストリーマーを自動取得するには、設定で『自動追跡』を有効にしてください",
     "description": "Hint after authorization to enable auto follow in settings"
-  }
-  ,
+  },
   "autoFollowPromptTitle": {
     "message": "自動追跡を有効にしますか？",
     "description": "Prompt title for enabling auto follow"
@@ -540,8 +766,7 @@
   "enableAction": {
     "message": "有効にする",
     "description": "Enable action label"
-  }
-  ,
+  },
   "chatTranslationSettings": {
     "message": "チャット翻訳設定",
     "description": "Chat translation settings section title"
@@ -569,9 +794,7 @@
   "translationRefreshHint": {
     "message": "翻訳設定の変更後、反映するには Twitch ページを再読み込みしてください。",
     "description": "Hint to refresh page after changing translation settings"
-  }
-  ,
-  
+  },
   "accountCreatedAt": {
     "message": "アカウント作成: $1",
     "description": "Account created at with localized date",
@@ -581,43 +804,63 @@
         "example": "2018/08/19 17:44:31"
       }
     }
-  }
-  ,
+  },
   "followAgeYearsDays": {
     "message": "$1 年 $2 日フォロー中",
     "description": "Follow age with years and days",
     "placeholders": {
-      "years": { "content": "$1", "example": "2" },
-      "days": { "content": "$2", "example": "35" }
+      "years": {
+        "content": "$1",
+        "example": "2"
+      },
+      "days": {
+        "content": "$2",
+        "example": "35"
+      }
     }
   },
   "followAgeYearsOnly": {
     "message": "$1 年フォロー中",
     "description": "Follow age with years only",
     "placeholders": {
-      "years": { "content": "$1", "example": "3" }
+      "years": {
+        "content": "$1",
+        "example": "3"
+      }
     }
   },
   "followAgeDaysOnly": {
     "message": "$1 日フォロー中",
     "description": "Follow age with days only",
     "placeholders": {
-      "days": { "content": "$1", "example": "120" }
+      "days": {
+        "content": "$1",
+        "example": "120"
+      }
     }
   },
   "syncComplete": {
     "message": "同期完了！$1 チャンネル追加、$2 チャンネル削除",
     "description": "Sync complete message with additions and removals",
     "placeholders": {
-      "added": { "content": "$1", "example": "2" },
-      "removed": { "content": "$2", "example": "1" }
+      "added": {
+        "content": "$1",
+        "example": "2"
+      },
+      "removed": {
+        "content": "$2",
+        "example": "1"
+      }
     }
   },
   "removedChannels": {
     "message": "フォロー解除された $1 チャンネルを削除しました",
     "description": "Removed channels message",
     "placeholders": {
-      "count": { "content": "$1", "example": "3" }
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
     }
   },
   "useKDisplay": {
@@ -640,7 +883,10 @@
     "message": "ビデオの読み込みエラー：$1",
     "description": "VOD 読み込み失敗時のエラーメッセージ",
     "placeholders": {
-      "error": { "content": "$1", "example": "不明なエラー" }
+      "error": {
+        "content": "$1",
+        "example": "不明なエラー"
+      }
     }
   },
   "noVodsFoundForChannel": {
@@ -659,28 +905,34 @@
     "message": "$1 日前",
     "description": "相対日付：N 日前",
     "placeholders": {
-      "days": { "content": "$1", "example": "3" }
+      "days": {
+        "content": "$1",
+        "example": "3"
+      }
     }
-  }
-  ,
+  },
   "goToChannel": {
     "message": "チャンネル",
     "description": "Go to channel button"
-  }
-  ,
+  },
   "followAgeHoursMinutes": {
     "message": "$1 時間 $2 分フォロー中",
     "description": "1日未満のフォロー期間の表示",
     "placeholders": {
-      "hours": { "content": "$1", "example": "3" },
-      "minutes": { "content": "$2", "example": "15" }
+      "hours": {
+        "content": "$1",
+        "example": "3"
+      },
+      "minutes": {
+        "content": "$2",
+        "example": "15"
+      }
     }
   },
   "followingFor": {
     "message": "フォロー中",
     "description": "フォロー期間の接頭辞（フォールバック）"
-  }
-  ,
+  },
   "loadingMoreVods": {
     "message": "さらに読み込み中...",
     "description": "VOD 追加読み込みのステータス"
@@ -688,13 +940,11 @@
   "noMoreVods": {
     "message": "これ以上ありません",
     "description": "VOD の末尾"
-  }
-  ,
+  },
   "favoriteShort": {
     "message": "お気に入り",
     "description": "Favorites short label"
-  }
-  ,
+  },
   "subscriberOnly": {
     "message": "サブ",
     "description": "サブスク限定動画のバッジ"

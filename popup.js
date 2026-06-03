@@ -322,7 +322,6 @@ function loadSettings() {
     const s = res?.settings || {};
     
     const muteNotificationsEl = document.getElementById('muteNotifications');
-    const hideOfflineEl = document.getElementById('hideOffline');
     const hidePreviewsEl = document.getElementById('hidePreviews');
     const pollMinutesEl = document.getElementById('pollMinutes');
     const autoFollowEl = document.getElementById('autoFollow');
@@ -335,7 +334,6 @@ function loadSettings() {
     const chattersCountEnabledEl = document.getElementById('chattersCountEnabled');
     
     if (muteNotificationsEl) muteNotificationsEl.checked = !!s.muteNotifications;
-    if (hideOfflineEl) hideOfflineEl.checked = s.hideOffline !== false;
     if (hidePreviewsEl) hidePreviewsEl.checked = !!s.hidePreviews;
     if (pollMinutesEl) pollMinutesEl.value = Number(s.pollMinutes || 1);
     if (autoFollowEl) autoFollowEl.checked = !!s.autoFollow;
@@ -559,7 +557,6 @@ function toggleOfflineSection(event) {
 
 function saveSettings() {
   const muteNotificationsEl = document.getElementById('muteNotifications');
-  const hideOfflineEl = document.getElementById('hideOffline');
   const hidePreviewsEl = document.getElementById('hidePreviews');
   const pollMinutesEl = document.getElementById('pollMinutes');
   const autoFollowEl = document.getElementById('autoFollow');
@@ -573,7 +570,6 @@ function saveSettings() {
   
   const settings = {
     muteNotifications: muteNotificationsEl ? muteNotificationsEl.checked : false,
-    hideOffline: hideOfflineEl ? hideOfflineEl.checked : true,
     hidePreviews: hidePreviewsEl ? hidePreviewsEl.checked : false,
     pollMinutes: pollMinutesEl ? Number(pollMinutesEl.value || 1) : 1,
     autoFollow: autoFollowEl ? autoFollowEl.checked : false,
@@ -661,83 +657,203 @@ function saveSettings() {
   });
 }
 
-function showStatus(message, type = 'success') {
-  const settingsContent = document.getElementById('settingsContent');
-  const isSettingsPage = settingsContent && settingsContent.classList.contains('active');
-  
-  if (isSettingsPage) {
-    if (type === 'error') {
-      const settingsStatus = document.getElementById('settingsStatus');
-      const settingsLastUpdate = document.getElementById('settingsLastUpdate');
-      
-      if (settingsStatus) {
-        settingsStatus.textContent = message;
-        settingsStatus.className = `status ${type}`;
-      }
-      
-      if (settingsLastUpdate) {
-        const now = new Date();
-        settingsLastUpdate.textContent = now.toLocaleTimeString();
-      }
-      
-      setTimeout(() => {
-        if (settingsStatus) {
-          settingsStatus.textContent = chrome.i18n.getMessage('ready') || 'Ready';
-          settingsStatus.className = 'status success';
-        }
-      }, 3000);
-    } else {
-      const status = document.createElement('div');
-      status.className = `status ${type}`;
-      status.textContent = message;
-      status.style.cssText = `
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        padding: 8px 16px;
-        border-radius: 4px;
-        font-size: 12px;
-        font-weight: 500;
-        z-index: 1000;
-        background: ${type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'};
-        color: ${type === 'success' ? '#10b981' : '#ef4444'};
-        border: 1px solid ${type === 'success' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'};
-      `;
-      
-      document.body.appendChild(status);
-      
-      setTimeout(() => {
-        status.remove();
-      }, 3000);
-    }
-  } else {
-    const status = document.createElement('div');
-    status.className = `status ${type}`;
-    status.textContent = message;
-    status.style.cssText = `
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      padding: 8px 16px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 500;
-      z-index: 1000;
-      background: ${type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'};
-      color: ${type === 'success' ? '#10b981' : '#ef4444'};
-      border: 1px solid ${type === 'success' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'};
-    `;
-    
-    document.body.appendChild(status);
-    
-    setTimeout(() => {
-      status.remove();
-    }, 3000);
-  }
-}
+function showStatus() {}
 
 function getPreviewUrl(username, width = 320, height = 180) {
-  return `https://static-cdn.jtvnw.net/previews-ttv/live_user_${username}-${width}x${height}.jpg`;
+  const login = String(username || '').toLowerCase();
+  return `https://static-cdn.jtvnw.net/previews-ttv/live_user_${login}-${width}x${height}.jpg`;
+}
+
+function formatTwitchThumbnailUrl(template, width, height) {
+  if (!template) return '';
+  return String(template)
+    .replace(/%\{width\}/g, String(width))
+    .replace(/%\{height\}/g, String(height))
+    .replace(/\{width\}/g, String(width))
+    .replace(/\{height\}/g, String(height));
+}
+
+function isVodFromToday(vod) {
+  if (!vod?.created_at) return false;
+  const created = new Date(vod.created_at);
+  if (Number.isNaN(created.getTime())) return false;
+  return created.toDateString() === new Date().toDateString();
+}
+
+function getVodChannelLogin(vod, channelLogin) {
+  return String(channelLogin || vod?.user_login || vod?.user_name || '').toLowerCase();
+}
+
+function getVodThumbnailCandidates(vod, channelLogin, width = 320, height = 180) {
+  const login = getVodChannelLogin(vod, channelLogin);
+  const candidates = [];
+
+  if (login && isVodFromToday(vod)) {
+    const created = vod?.created_at ? new Date(vod.created_at) : null;
+    const ts = created && !Number.isNaN(created.getTime())
+      ? Math.floor(created.getTime() / 1000)
+      : Math.floor(Date.now() / 1000);
+    candidates.push(`${getPreviewUrl(login, width, height)}?t=${ts}`);
+    candidates.push(`${getPreviewUrl(login, width, height)}?t=${Date.now()}`);
+  }
+
+  const apiThumb = formatTwitchThumbnailUrl(vod?.thumbnail_url, width, height);
+  if (apiThumb) candidates.push(apiThumb);
+
+  if (login) {
+    candidates.push(getPreviewUrl(login, width, height));
+  }
+
+  if (vod?.id) {
+    const vodId = String(vod.id).replace(/^v/, '');
+    candidates.push(`https://static-cdn.jtvnw.net/previews-ttv/vod_${vodId}-${width}x${height}.jpg`);
+  }
+
+  return [...new Set(candidates.filter(Boolean))];
+}
+
+function applyImageFallback(img, candidates) {
+  if (!img || !candidates.length) {
+    if (img) img.style.display = 'none';
+    return;
+  }
+
+  let index = 0;
+  const onError = () => {
+    index += 1;
+    if (index < candidates.length) {
+      img.src = candidates[index];
+    } else {
+      img.removeEventListener('error', onError);
+      img.style.display = 'none';
+    }
+  };
+
+  img.addEventListener('error', onError);
+  img.style.display = '';
+  img.src = candidates[0];
+}
+
+function applyVodThumbnail(img, vod, channelLogin, width = 320, height = 180) {
+  applyImageFallback(img, getVodThumbnailCandidates(vod, channelLogin, width, height));
+}
+
+function createVodItemElement(vod, channelLogin) {
+  const vodItem = document.createElement('div');
+  vodItem.className = 'vod-item';
+
+  const duration = formatDuration(vod.duration);
+  const date = formatDate(vod.created_at);
+  const isSubOnly = !!(
+    vod &&
+    (vod.isSubscriberOnly === true ||
+      (typeof vod.viewable === 'string' && vod.viewable.toLowerCase() !== 'public'))
+  );
+
+  const thumbnailDiv = document.createElement('div');
+  thumbnailDiv.className = 'vod-thumbnail';
+  const img = document.createElement('img');
+  img.alt = vod.title || '';
+  applyVodThumbnail(img, vod, channelLogin, 320, 180);
+  thumbnailDiv.appendChild(img);
+
+  const contentDiv = document.createElement('div');
+  contentDiv.className = 'vod-content';
+
+  const titleDiv = document.createElement('div');
+  titleDiv.className = 'vod-title';
+  titleDiv.style.cssText = 'display:flex;align-items:center;gap:8px;min-width:0;';
+
+  const titleSpan = document.createElement('span');
+  titleSpan.className = 'stream-title';
+  titleSpan.setAttribute(
+    'data-full',
+    (vod.title || '').replace(/\\/g, '\\').replace(/\n/g, ' ').replace(/"/g, '&quot;')
+  );
+  titleSpan.style.cssText =
+    'flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;line-height:1.4;min-height: calc(1.4em * 2);';
+  titleSpan.textContent = vod.title || '';
+  titleDiv.appendChild(titleSpan);
+
+  const metaDiv = document.createElement('div');
+  metaDiv.className = 'vod-meta';
+  metaDiv.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;';
+
+  if (isSubOnly) {
+    const badge = document.createElement('span');
+    badge.className = 'vod-badge';
+    badge.style.cssText =
+      'padding:2px 6px;border-radius:6px;background:#ef4444;color:#ffffff;border:1px solid #ef4444;font-size:10px;';
+    badge.textContent = chrome.i18n.getMessage('subscriberOnly') || 'Subscriber-only';
+    metaDiv.appendChild(badge);
+  }
+
+  const durationDiv = document.createElement('div');
+  durationDiv.className = 'vod-duration';
+  durationDiv.textContent = duration;
+  metaDiv.appendChild(durationDiv);
+
+  const dateDiv = document.createElement('div');
+  dateDiv.className = 'vod-date';
+  dateDiv.textContent = date;
+  metaDiv.appendChild(dateDiv);
+
+  contentDiv.appendChild(titleDiv);
+  contentDiv.appendChild(metaDiv);
+  vodItem.appendChild(thumbnailDiv);
+  vodItem.appendChild(contentDiv);
+
+  const hoverCandidates = getVodThumbnailCandidates(vod, channelLogin, 640, 360);
+  let previewEl = null;
+  const showPreview = (e) => {
+    if (previewEl) return;
+    previewEl = document.createElement('div');
+    previewEl.style.cssText = [
+      'position: fixed',
+      'z-index: 10001',
+      'pointer-events: none',
+      'border-radius: 8px',
+      'overflow: hidden',
+      'box-shadow: 0 8px 24px rgba(0,0,0,0.35)',
+      'border: none',
+      'background: var(--bg-secondary)'
+    ].join(';');
+    const previewImg = document.createElement('img');
+    previewImg.style.cssText = 'display:block;width:320px;height:180px;object-fit:cover;';
+    applyImageFallback(previewImg, hoverCandidates.length ? hoverCandidates : [getPreviewUrl(channelLogin, 640, 360)]);
+    previewEl.appendChild(previewImg);
+    document.body.appendChild(previewEl);
+    positionPreview(e);
+  };
+  const positionPreview = (e) => {
+    if (!previewEl) return;
+    const padding = 12;
+    let x = e.clientX + padding;
+    let y = e.clientY + padding;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const rect = previewEl.getBoundingClientRect();
+    if (x + rect.width > vw - 4) x = Math.max(4, vw - rect.width - 4);
+    if (y + rect.height > vh - 4) y = Math.max(4, vh - rect.height - 4);
+    previewEl.style.left = `${x}px`;
+    previewEl.style.top = `${y}px`;
+  };
+  const hidePreview = () => {
+    if (previewEl) {
+      previewEl.remove();
+      previewEl = null;
+    }
+  };
+
+  thumbnailDiv.addEventListener('mouseover', showPreview);
+  thumbnailDiv.addEventListener('mousemove', positionPreview);
+  thumbnailDiv.addEventListener('mouseout', hidePreview);
+
+  vodItem.addEventListener('click', () => {
+    chrome.tabs.create({ url: vod.url });
+  });
+
+  return vodItem;
 }
 
 async function renderStreamList(streams, settings) {
@@ -762,24 +878,8 @@ async function renderStreamList(streams, settings) {
   errorMessageEl.textContent = '';
   
   let liveStreams = (streams || []).filter(stream => stream.channel);
-  let offlineStreams = (streams || []).filter(stream => !stream.channel);
   liveStreams = dedupeStreamsPreferTwitch(liveStreams);
-  offlineStreams = dedupeStreamsPreferTwitch(offlineStreams);
   
-  if (liveStreams.length === 0 && offlineStreams.length === 0) {
-    emptyState.classList.remove('hidden');
-    const noStreamsText = chrome.i18n.getMessage('noStreams');
-    statusBar.textContent = noStreamsText;
-    
-    const settingsStatus = document.getElementById('settingsStatus');
-    if (settingsStatus) {
-      settingsStatus.textContent = noStreamsText;
-      settingsStatus.className = 'status success';
-    }
-    return;
-  }
-
-  const hideOffline = settings?.hideOffline !== false;
   if (liveStreams.length === 0) {
     emptyState.classList.remove('hidden');
     const noStreamsText = chrome.i18n.getMessage('noStreams');
@@ -790,37 +890,23 @@ async function renderStreamList(streams, settings) {
       settingsStatus.textContent = noStreamsText;
       settingsStatus.className = 'status success';
     }
-    
-    if (offlineStreams.length > 0 && !hideOffline) {
-      const existingOfflineSection = streamList.querySelector('.offline-section');
-      updateOfflineSection(streamList, existingOfflineSection, offlineStreams, settings);
-    }
+
+    const existingOfflineSection = streamList.querySelector('.offline-section');
+    if (existingOfflineSection) existingOfflineSection.remove();
     setupStreamTitleTooltips();
     return;
   }
 
   emptyState.classList.add('hidden');
   
-  if (liveStreams.length > 0) {
-    const plural = liveStreams.length === 1 ? '' : 's';
-    const statusText = chrome.i18n.getMessage('streamsLive', [liveStreams.length, plural]);
-    statusBar.textContent = statusText;
-    
-    const settingsStatus = document.getElementById('settingsStatus');
-    if (settingsStatus) {
-      settingsStatus.textContent = statusText;
-      settingsStatus.className = 'status success';
-    }
-  } else {
-    const plural = offlineStreams.length === 1 ? '' : 's';
-    const statusText = chrome.i18n.getMessage('streamsOffline', [offlineStreams.length, plural]);
-    statusBar.textContent = statusText;
-    
-    const settingsStatus = document.getElementById('settingsStatus');
-    if (settingsStatus) {
-      settingsStatus.textContent = statusText;
-      settingsStatus.className = 'status success';
-    }
+  const plural = liveStreams.length === 1 ? '' : 's';
+  const statusText = chrome.i18n.getMessage('streamsLive', [liveStreams.length, plural]);
+  statusBar.textContent = statusText;
+  
+  const settingsStatus = document.getElementById('settingsStatus');
+  if (settingsStatus) {
+    settingsStatus.textContent = statusText;
+    settingsStatus.className = 'status success';
   }
   
   const lastUpdate = document.getElementById('lastUpdate');
@@ -847,7 +933,6 @@ async function renderStreamList(streams, settings) {
   
 
   const sortedLiveStreams = liveStreams.sort((a, b) => (b.viewers || 0) - (a.viewers || 0));
-  const sortedOfflineStreams = offlineStreams.sort((a, b) => (a.username || '').localeCompare(b.username || ''));
 
   await new Promise((resolve) => {
     chrome.storage.local.get(['tsn_favorites'], async (obj) => {
@@ -882,7 +967,7 @@ async function renderStreamList(streams, settings) {
       }
 
       const existingOfflineSection = streamList.querySelector('.offline-section');
-      updateOfflineSection(streamList, existingOfflineSection, sortedOfflineStreams, settings);
+      if (existingOfflineSection) existingOfflineSection.remove();
       setupStreamTitleTooltips();
       resolve();
     });
@@ -1063,22 +1148,6 @@ function setupStreamTitleTooltips() {
       }
     });
   }
-}
-
-async function updateStreamList(streamList, liveStreams, offlineStreams, settings) {
-  if (!streamList) {
-    return;
-  }
-  liveStreams = dedupeStreamsPreferTwitch(liveStreams || []);
-  offlineStreams = dedupeStreamsPreferTwitch(offlineStreams || []);
-  
-  const existingItems = Array.from(streamList.children);
-  const existingLiveItems = existingItems.filter(item => !item.classList.contains('offline-section'));
-  const existingOfflineSection = existingItems.find(item => item.classList.contains('offline-section'));
-  
-  await updateLiveStreamItems(streamList, existingLiveItems, liveStreams, settings);
-  
-  updateOfflineSection(streamList, existingOfflineSection, offlineStreams, settings);
 }
 
 async function updateLiveStreamItems(streamList, existingItems, liveStreams, settings) {
@@ -1414,201 +1483,6 @@ async function createStreamItem(stream, settings) {
     if (removeBtn) {
       item.appendChild(removeBtn);
     }
-  return item;
-}
-
-function updateOfflineSection(streamList, existingOfflineSection, offlineStreams, settings) {
-  const hideOffline = settings?.hideOffline !== false;
-  
-  if (offlineStreams && offlineStreams.length > 0 && !hideOffline) {
-    if (existingOfflineSection) {
-      const offlineGrid = existingOfflineSection.querySelector('.offline-grid');
-      const title = existingOfflineSection.querySelector('.offline-title');
-      
-      if (title) {
-        title.textContent = chrome.i18n.getMessage('offlineStreamers', [offlineStreams.length]);
-      }
-      
-      if (offlineGrid) {
-        updateOfflineStreamItems(offlineGrid, offlineStreams, settings);
-      }
-    } else {
-  const offlineSection = createOfflineSection(offlineStreams, settings);
-      streamList.appendChild(offlineSection);
-    }
-  } else if (existingOfflineSection) {
-  existingOfflineSection.remove();
-  }
-}
-
-function updateOfflineStreamItems(offlineGrid, offlineStreams, settings) {
-  if (!offlineGrid || !offlineStreams || !Array.isArray(offlineStreams)) {
-    return;
-  }
-  
-  const existingItems = Array.from(offlineGrid.children);
-  const itemMap = new Map();
-  
-  existingItems.forEach(item => {
-    const username = item.getAttribute('data-username');
-    if (username) {
-      itemMap.set(username, item);
-    }
-  });
-  
-  offlineStreams.forEach((stream, index) => {
-    const streamKey = getStreamItemKey(stream);
-    let item = itemMap.get(streamKey);
-    
-    if (!item) {
-      item = createOfflineStreamItem(stream, settings);
-      offlineGrid.insertBefore(item, existingItems[index] || null);
-    }
-  });
-  
-  const currentUsernames = new Set(offlineStreams.map(s => getStreamItemKey(s)));
-  existingItems.forEach(item => {
-    const username = item.getAttribute('data-username');
-    if (username && !currentUsernames.has(username)) {
-      item.remove();
-    }
-  });
-}
-
-function createOfflineSection(offlineStreams, settings) {
-  const offlineSection = document.createElement('div');
-  offlineSection.className = 'offline-section';
-  const offlineHeader = document.createElement('div');
-  offlineHeader.className = 'offline-header';
-  const offlineTitle = document.createElement('span');
-  offlineTitle.className = 'offline-title';
-  offlineTitle.textContent = chrome.i18n.getMessage('offlineStreamers', [offlineStreams.length]);
-  offlineHeader.appendChild(offlineTitle);
-  
-  const offlineGrid = document.createElement('div');
-  offlineGrid.className = 'offline-grid';
-  
-  offlineSection.appendChild(offlineHeader);
-  offlineSection.appendChild(offlineGrid);
-  
-  offlineStreams.forEach(stream => {
-    const item = createOfflineStreamItem(stream, settings);
-    offlineGrid.appendChild(item);
-  });
-  
-  return offlineSection;
-}
-
-function createOfflineStreamItem(stream, settings) {
-  const item = document.createElement('div');
-  item.className = 'offline-card fade-in';
-  item.setAttribute('data-username', getStreamItemKey(stream));
-  const isKick = stream.platform === 'kick';
-  item.addEventListener('click', () => {
-    const url = isKick ? `https://kick.com/${stream.username}` : `https://www.twitch.tv/${stream.username}`;
-    chrome.tabs.create({ url });
-  });
-  
-  let removeBtn = null;
-  if (!settings?.autoFollow) {
-    removeBtn = document.createElement('button');
-    removeBtn.className = 'remove-btn';
-    removeBtn.textContent = '×';
-    removeBtn.setAttribute('aria-label', chrome.i18n.getMessage('remove'));
-    removeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      
-  const confirmMessage = chrome.i18n.getMessage('confirmDeleteChannel', [stream.username]);
-      showConfirmDialog(confirmMessage, () => {
-        if (removeBtn.disabled) return;
-        removeBtn.disabled = true;
-        const removeMsg = isKick
-          ? { type: 'kick:channels:remove', slug: stream.username }
-          : { type: 'streams:remove', username: stream.username };
-        chrome.runtime.sendMessage(removeMsg, (response) => {
-          if (chrome.runtime.lastError) {
-            showStatus(`❌ ${chrome.runtime.lastError.message}`, 'error');
-            removeBtn.disabled = false;
-            return;
-          }
-          if (response?.ok) {
-            if (isKick) {
-              loadKickChannels();
-            } else {
-              renderChips(response.channels || []);
-            }
-            refresh();
-          } else {
-            const msg = response?.error || chrome.i18n.getMessage('deleteFailed') || 'Delete failed';
-            showStatus(`❌ ${msg}`, 'error');
-            removeBtn.disabled = false;
-          }
-        });
-      }, null, chrome.i18n.getMessage('confirmDelete'));
-    });
-    // Unified tooltip like favorite button
-    removeBtn.addEventListener('mouseenter', (e) => {
-      const tipText = chrome.i18n.getMessage('remove') || '移除';
-      showUnifiedTooltip(e, tipText);
-    });
-    removeBtn.addEventListener('mousemove', (e) => {
-      moveUnifiedTooltip(e);
-    });
-    removeBtn.addEventListener('mouseleave', () => {
-      hideUnifiedTooltip();
-    });
-  }
-
-  const cardContent = document.createElement('div');
-  cardContent.className = 'offline-card-content';
-  
-  const avatar = document.createElement('div');
-  avatar.className = 'offline-avatar';
-  const avatarPlaceholder = document.createElement('div');
-  avatarPlaceholder.className = 'offline-avatar-placeholder';
-  
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('width', '24');
-  svg.setAttribute('height', '24');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('fill', 'none');
-  svg.setAttribute('stroke', 'currentColor');
-  svg.setAttribute('stroke-width', '2');
-  svg.setAttribute('stroke-linecap', 'round');
-  svg.setAttribute('stroke-linejoin', 'round');
-  
-  const path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  path1.setAttribute('d', 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2');
-  const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-  circle.setAttribute('cx', '12');
-  circle.setAttribute('cy', '7');
-  circle.setAttribute('r', '4');
-  
-  svg.appendChild(path1);
-  svg.appendChild(circle);
-  avatarPlaceholder.appendChild(svg);
-  avatar.appendChild(avatarPlaceholder);
-  
-  const info = document.createElement('div');
-  info.className = 'offline-info';
-  
-  const name = document.createElement('div');
-  name.className = 'offline-name';
-  name.textContent = stream.username;
-  
-  const status = document.createElement('div');
-  status.className = 'offline-status';
-  status.textContent = chrome.i18n.getMessage('offline');
-  
-  info.appendChild(name);
-  info.appendChild(status);
-  
-  cardContent.appendChild(avatar);
-  cardContent.appendChild(info);
-  item.appendChild(cardContent);
-  if (removeBtn) {
-    item.appendChild(removeBtn);
-  }
   return item;
 }
 
@@ -2656,7 +2530,7 @@ function showConfirmDialog(message, onConfirm, onCancel, confirmText = null) {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 10000;
+    z-index: 10200;
   `;
   
   const dialog = document.createElement('div');
@@ -2791,7 +2665,7 @@ function deleteAllKickChannels() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-      const settingsElements = ['muteNotifications', 'hideOffline', 'hidePreviews', 'pollMinutes', 'autoFollow', 'translationEnabled', 'translationProvider', 'targetLanguage', 'customPrefix', 'useKDisplay'];
+      const settingsElements = ['muteNotifications', 'hidePreviews', 'pollMinutes', 'autoFollow', 'translationEnabled', 'translationProvider', 'targetLanguage', 'customPrefix', 'useKDisplay'];
   settingsElements.forEach(id => {
     const element = document.getElementById(id);
     if (element) {
@@ -2895,6 +2769,39 @@ document.addEventListener('DOMContentLoaded', () => {
   const deleteAllKickBtn = document.getElementById('deleteAllKickChannels');
   if (deleteAllKickBtn) {
     deleteAllKickBtn.addEventListener('click', deleteAllKickChannels);
+  }
+
+  const kickChannelSection = document.getElementById('kickChannelSection');
+  const kickSectionToggle = document.getElementById('kickSectionToggle');
+  if (kickChannelSection && kickSectionToggle) {
+    const KICK_SECTION_COLLAPSED_KEY = 'tsn_kick_section_collapsed';
+
+    const applyKickSectionCollapsed = (collapsed) => {
+      kickChannelSection.classList.toggle('is-collapsed', collapsed);
+      kickSectionToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    };
+
+    chrome.storage.local.get([KICK_SECTION_COLLAPSED_KEY], (result) => {
+      if (chrome.runtime.lastError) return;
+      const stored = result?.[KICK_SECTION_COLLAPSED_KEY];
+      applyKickSectionCollapsed(stored !== false);
+    });
+
+    const toggleKickSection = () => {
+      const collapsed = !kickChannelSection.classList.contains('is-collapsed');
+      applyKickSectionCollapsed(collapsed);
+      try {
+        chrome.storage.local.set({ [KICK_SECTION_COLLAPSED_KEY]: collapsed });
+      } catch (_) {}
+    };
+
+    kickSectionToggle.addEventListener('click', toggleKickSection);
+    kickSectionToggle.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleKickSection();
+      }
+    });
   }
 
   const kickNotificationContainer = document.getElementById('kickNotificationChannels');
@@ -3029,12 +2936,13 @@ function startAutoRefresh() {
         return;
       }
       if (response?.payload) {
-        const streamList = document.getElementById('streamsContainer');
-        if (streamList) {
-          const liveStreams = response.payload || [];
-          const offlineStreams = response.offlineStreams || [];
-          updateStreamList(streamList, liveStreams, offlineStreams, null);
-        }
+        chrome.runtime.sendMessage({ type: 'settings:get' }, async (settingsRes) => {
+          if (chrome.runtime.lastError) {
+            await renderStreamList(response.payload, {});
+            return;
+          }
+          await renderStreamList(response.payload, settingsRes?.settings || {});
+        });
       }
     });
   }, 10000);
@@ -3276,6 +3184,9 @@ function loadUserProfile() {
 
 document.addEventListener('DOMContentLoaded', () => {
   i18n();
+  if (typeof window.refreshDriveBackupI18n === 'function') {
+    window.refreshDriveBackupI18n();
+  }
   loadSettings();
   setTimeout(() => {
     refresh();
@@ -3369,7 +3280,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   
-  const settingsElements = ['muteNotifications', 'hideOffline', 'hidePreviews', 'pollMinutes', 'autoFollow', 'translationEnabled', 'translationProvider', 'targetLanguage', 'customPrefix', 'useKDisplay'];
+  const settingsElements = ['muteNotifications', 'hidePreviews', 'pollMinutes', 'autoFollow', 'translationEnabled', 'translationProvider', 'targetLanguage', 'customPrefix', 'useKDisplay'];
   settingsElements.forEach(id => {
     const element = document.getElementById(id);
     if (element) {
@@ -4366,7 +4277,7 @@ function renderVodList(vods, container, channelId = null, cursor = null) {
     }
     const emptyDiv = document.createElement('div');
     emptyDiv.className = 'vod-error';
-    
+
     const emptySvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     emptySvg.setAttribute('width', '24');
     emptySvg.setAttribute('height', '24');
@@ -4376,7 +4287,7 @@ function renderVodList(vods, container, channelId = null, cursor = null) {
     emptySvg.setAttribute('stroke-width', '2');
     emptySvg.setAttribute('stroke-linecap', 'round');
     emptySvg.setAttribute('stroke-linejoin', 'round');
-    
+
     const emptyRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     emptyRect.setAttribute('x', '2');
     emptyRect.setAttribute('y', '7');
@@ -4386,143 +4297,28 @@ function renderVodList(vods, container, channelId = null, cursor = null) {
     emptyRect.setAttribute('ry', '2');
     const emptyPolyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
     emptyPolyline.setAttribute('points', '17 2 12 7 7 2');
-    
+
     emptySvg.appendChild(emptyRect);
     emptySvg.appendChild(emptyPolyline);
-    
+
     const emptyText = document.createElement('div');
     emptyText.style.cssText = 'margin-top: 8px;';
-    emptyText.textContent = chrome.i18n.getMessage('noVodsFoundForChannel') || 'No VODs found for this channel';
-    
+    emptyText.textContent =
+      chrome.i18n.getMessage('noVodsFoundForChannel') || 'No VODs found for this channel';
+
     emptyDiv.appendChild(emptySvg);
     emptyDiv.appendChild(emptyText);
     container.appendChild(emptyDiv);
     return;
   }
-  
+
   const vodList = document.createElement('div');
   vodList.className = 'vod-list';
-  
-  vods.forEach(vod => {
-    const vodItem = document.createElement('div');
-    vodItem.className = 'vod-item';
-    
-    const duration = formatDuration(vod.duration);
-    const views = formatViews(vod.view_count);
-    const date = formatDate(vod.created_at);
-    const isSubOnly = !!(vod && (vod.isSubscriberOnly === true || (typeof vod.viewable === 'string' && vod.viewable.toLowerCase() !== 'public')));
-    
-    const thumbnailUrl = vod.thumbnail_url.replace('%{width}', '320').replace('%{height}', '180');
-    
-    const thumbnailDiv = document.createElement('div');
-    thumbnailDiv.className = 'vod-thumbnail';
-    const imgElement33 = document.createElement('img');
-    imgElement33.src = thumbnailUrl;
-    imgElement33.alt = vod.title || '';
-    thumbnailDiv.appendChild(imgElement33);
-    
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'vod-content';
-    
-    const titleDiv = document.createElement('div');
-    titleDiv.className = 'vod-title';
-    titleDiv.style.cssText = 'display:flex;align-items:center;gap:8px;min-width:0;';
-    
-    const titleSpan = document.createElement('span');
-    titleSpan.className = 'stream-title';
-    titleSpan.setAttribute('data-full', (vod.title || '').replace(/\\/g, "\\").replace(/\n/g, ' ').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
-    titleSpan.style.cssText = 'flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;line-height:1.4;min-height: calc(1.4em * 2);';
-    titleSpan.textContent = vod.title || '';
-    titleDiv.appendChild(titleSpan);
-    
-    const metaDiv = document.createElement('div');
-    metaDiv.className = 'vod-meta';
-    metaDiv.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;';
-    
-    if (isSubOnly) {
-      const badge = document.createElement('span');
-      badge.className = 'vod-badge';
-      badge.style.cssText = 'padding:2px 6px;border-radius:6px;background:#ef4444;color:#ffffff;border:1px solid #ef4444;font-size:10px;';
-      badge.textContent = chrome.i18n.getMessage('subscriberOnly') || 'Subscriber-only';
-      metaDiv.appendChild(badge);
-    }
-    
-    const durationDiv = document.createElement('div');
-    durationDiv.className = 'vod-duration';
-    durationDiv.textContent = duration;
-    metaDiv.appendChild(durationDiv);
-    
-    const dateDiv = document.createElement('div');
-    dateDiv.className = 'vod-date';
-    dateDiv.textContent = date;
-    metaDiv.appendChild(dateDiv);
-    
-    contentDiv.appendChild(titleDiv);
-    contentDiv.appendChild(metaDiv);
-    
-    vodItem.appendChild(thumbnailDiv);
-    vodItem.appendChild(contentDiv);
-    
-    const imgElement32 = vodItem.querySelector('img');
-    imgElement32.addEventListener('error', () => {
-      imgElement32.style.display = 'none';
-    });
-    
-    const thumbEl = vodItem.querySelector('.vod-thumbnail');
-    let previewEl = null;
-    const showPreview = (e) => {
-      if (previewEl) return;
-      previewEl = document.createElement('div');
-      previewEl.style.cssText = [
-        'position: fixed',
-        'z-index: 10001',
-        'pointer-events: none',
-        'border-radius: 8px',
-        'overflow: hidden',
-        'box-shadow: 0 8px 24px rgba(0,0,0,0.35)',
-        'border: none',
-        'background: var(--bg-secondary)'
-      ].join(';');
-      const bigUrl = (vod.thumbnail_url || '').replace('%{width}', '640').replace('%{height}', '360');
-      const previewImg = document.createElement('img');
-      previewImg.src = bigUrl;
-      previewImg.style.cssText = 'display:block;width:320px;height:180px;object-fit:cover;';
-      previewEl.appendChild(previewImg);
-      document.body.appendChild(previewEl);
-      positionPreview(e);
-    };
-    const positionPreview = (e) => {
-      if (!previewEl) return;
-      const padding = 12;
-      let x = e.clientX + padding;
-      let y = e.clientY + padding;
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      const rect = previewEl.getBoundingClientRect();
-      if (x + rect.width > vw - 4) x = Math.max(4, vw - rect.width - 4);
-      if (y + rect.height > vh - 4) y = Math.max(4, vh - rect.height - 4);
-      previewEl.style.left = `${x}px`;
-      previewEl.style.top = `${y}px`;
-    };
-    const hidePreview = () => {
-      if (previewEl) {
-        previewEl.remove();
-        previewEl = null;
-      }
-    };
-    if (thumbEl) {
-      thumbEl.addEventListener('mouseover', showPreview);
-      thumbEl.addEventListener('mousemove', positionPreview);
-      thumbEl.addEventListener('mouseout', hidePreview);
-    }
-    
-    vodItem.addEventListener('click', () => {
-      chrome.tabs.create({ url: vod.url });
-    });
-    
-    vodList.appendChild(vodItem);
+
+  vods.forEach((vod) => {
+    vodList.appendChild(createVodItemElement(vod, channelId));
   });
-  
+
   while (container.firstChild) {
     container.removeChild(container.firstChild);
   }
@@ -4547,131 +4343,34 @@ function setupVodInfiniteScroll(container, channelId, cursor) {
     if (loadingMore || !nextCursor) return;
     loadingMore = true;
     statusEl.textContent = chrome.i18n.getMessage('loadingMoreVods') || 'Loading more...';
-    chrome.runtime.sendMessage({ type: 'vods:get', username: channelId, limit: 20, after: nextCursor }, (response) => {
-      loadingMore = false;
-      if (chrome.runtime.lastError || !response?.ok) return;
-      const items = response.items || response.vods || [];
-      nextCursor = response.cursor || null;
-      const list = container.querySelector('.vod-list');
-      items.forEach(vod => {
-        const node = document.createElement('div');
-        node.className = 'vod-item';
-        const duration = formatDuration(vod.duration);
-        const views = formatViews(vod.view_count);
-        const date = formatDate(vod.created_at);
-        const isSubOnly = !!(vod && (vod.isSubscriberOnly === true || (typeof vod.viewable === 'string' && vod.viewable.toLowerCase() !== 'public')));
-        const thumbnailUrl = vod.thumbnail_url.replace('%{width}', '320').replace('%{height}', '180');
-        const thumbnailDiv = document.createElement('div');
-        thumbnailDiv.className = 'vod-thumbnail';
-        const img = document.createElement('img');
-        img.src = thumbnailUrl;
-        img.alt = vod.title || '';
-        thumbnailDiv.appendChild(img);
-        
-        const contentDiv = document.createElement('div');
-        contentDiv.className = 'vod-content';
-        
-        const titleDiv = document.createElement('div');
-        titleDiv.className = 'vod-title';
-        titleDiv.style.cssText = 'display:flex;align-items:center;gap:8px;min-width:0;';
-        
-        const titleSpan = document.createElement('span');
-        titleSpan.className = 'stream-title';
-        titleSpan.setAttribute('data-full', vod.title || '');
-        titleSpan.style.cssText = 'flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;line-height:1.4;min-height: calc(1.4em * 2);';
-        titleSpan.textContent = vod.title || '';
-        
-        titleDiv.appendChild(titleSpan);
-        contentDiv.appendChild(titleDiv);
-        
-        const metaDiv = document.createElement('div');
-        metaDiv.className = 'vod-meta';
-        metaDiv.style.cssText = 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;';
-        
-        if (isSubOnly) {
-          const badge = document.createElement('span');
-          badge.className = 'vod-badge';
-          badge.style.cssText = 'padding:2px 6px;border-radius:6px;background:#ef4444;color:#ffffff;border:1px solid #ef4444;font-size:10px;';
-          badge.textContent = chrome.i18n.getMessage('subscriberOnly') || 'Subscriber-only';
-          metaDiv.appendChild(badge);
+    chrome.runtime.sendMessage(
+      { type: 'vods:get', username: channelId, limit: 20, after: nextCursor },
+      (response) => {
+        loadingMore = false;
+        if (chrome.runtime.lastError || !response?.ok) return;
+        const items = response.items || response.vods || [];
+        nextCursor = response.cursor || null;
+        const list = container.querySelector('.vod-list');
+        items.forEach((vod) => {
+          list.appendChild(createVodItemElement(vod, channelId));
+        });
+        if (!nextCursor) {
+          statusEl.textContent = chrome.i18n.getMessage('noMoreVods') || 'No more VODs';
+          observer.disconnect();
+        } else {
+          statusEl.textContent = '';
         }
-        
-        const durationDiv = document.createElement('div');
-        durationDiv.className = 'vod-duration';
-        durationDiv.textContent = duration;
-        metaDiv.appendChild(durationDiv);
-        
-        const dateDiv = document.createElement('div');
-        dateDiv.className = 'vod-date';
-        dateDiv.textContent = date;
-        metaDiv.appendChild(dateDiv);
-        
-        contentDiv.appendChild(metaDiv);
-        
-        node.appendChild(thumbnailDiv);
-        node.appendChild(contentDiv);
-        const imgElement3 = node.querySelector('img');
-        imgElement3.addEventListener('error', () => { imgElement3.style.display = 'none'; });
-        const thumbEl2 = node.querySelector('.vod-thumbnail');
-        let previewEl2 = null;
-        const showPreview2 = (e) => {
-          if (previewEl2) return;
-          previewEl2 = document.createElement('div');
-          previewEl2.style.cssText = [
-            'position: fixed',
-            'z-index: 10001',
-            'pointer-events: none',
-            'border-radius: 8px',
-            'overflow: hidden',
-            'box-shadow: 0 8px 24px rgba(0,0,0,0.35)',
-            'border: none',
-            'background: var(--bg-secondary)'
-          ].join(';');
-          const bigUrl2 = (vod.thumbnail_url || '').replace('%{width}', '640').replace('%{height}', '360');
-          const previewImg2 = document.createElement('img');
-          previewImg2.src = bigUrl2;
-          previewImg2.style.cssText = 'display:block;width:320px;height:180px;object-fit:cover;';
-          previewEl2.appendChild(previewImg2);
-          document.body.appendChild(previewEl2);
-          positionPreview2(e);
-        };
-        const positionPreview2 = (e) => {
-          if (!previewEl2) return;
-          const padding = 12;
-          let x = e.clientX + padding;
-          let y = e.clientY + padding;
-          const vw = window.innerWidth;
-          const vh = window.innerHeight;
-          const rect = previewEl2.getBoundingClientRect();
-          if (x + rect.width > vw - 4) x = Math.max(4, vw - rect.width - 4);
-          if (y + rect.height > vh - 4) y = Math.max(4, vh - rect.height - 4);
-          previewEl2.style.left = `${x}px`;
-          previewEl2.style.top = `${y}px`;
-        };
-        const hidePreview2 = () => {
-          if (previewEl2) { previewEl2.remove(); previewEl2 = null; }
-        };
-        if (thumbEl2) {
-          thumbEl2.addEventListener('mouseover', showPreview2);
-          thumbEl2.addEventListener('mousemove', positionPreview2);
-          thumbEl2.addEventListener('mouseout', hidePreview2);
-        }
-        node.addEventListener('click', () => { chrome.tabs.create({ url: vod.url }); });
-        list.appendChild(node);
-      });
-      if (!nextCursor) {
-        statusEl.textContent = chrome.i18n.getMessage('noMoreVods') || 'No more VODs';
-        observer.disconnect();
-      } else {
-        statusEl.textContent = '';
       }
-    });
+    );
   };
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) loadMore();
-    });
-  }, { root: container, rootMargin: '200px' });
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) loadMore();
+      });
+    },
+    { root: container, rootMargin: '200px' }
+  );
   observer.observe(sentinel);
 }
 

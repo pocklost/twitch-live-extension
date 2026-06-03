@@ -411,6 +411,234 @@
     "message": "匯出設定到檔案，或從檔案匯入設定",
     "description": "Settings backup help text"
   },
+  "driveBackupTitle": {
+    "message": "Google Drive 雲端備份",
+    "description": "Google Drive backup section title"
+  },
+  "driveChromeOnlyHint": {
+    "message": "僅限 Chrome 瀏覽器",
+    "description": "Drive backup Chrome-only notice"
+  },
+  "driveBackupLoading": {
+    "message": "正在載入雲端備份狀態…",
+    "description": "Drive backup loading status"
+  },
+  "driveConnect": {
+    "message": "連結 Google",
+    "description": "Connect Google Drive button"
+  },
+  "driveDisconnect": {
+    "message": "取消連結",
+    "description": "Disconnect Google Drive button"
+  },
+  "driveUpload": {
+    "message": "建立雲端備份",
+    "description": "Upload backup to Drive button"
+  },
+  "driveRefreshList": {
+    "message": "重新整理",
+    "description": "Refresh backup list button"
+  },
+  "driveOpenBackupList": {
+    "message": "查看備份紀錄",
+    "description": "Open backup list modal button"
+  },
+  "driveOpenBackupListCount": {
+    "message": "查看備份紀錄（$1 筆）",
+    "description": "Open backup list with count",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "driveModalTitle": {
+    "message": "雲端備份紀錄",
+    "description": "Drive backup modal title"
+  },
+  "driveModalClose": {
+    "message": "關閉",
+    "description": "Close drive modal"
+  },
+  "driveModalLoading": {
+    "message": "載入備份清單中…",
+    "description": "Drive modal loading"
+  },
+  "driveBackupListTitle": {
+    "message": "備份紀錄",
+    "description": "Backup list section title (legacy)"
+  },
+  "driveRestoreSelected": {
+    "message": "還原",
+    "description": "Restore selected backup button"
+  },
+  "driveDeleteSelected": {
+    "message": "刪除",
+    "description": "Delete selected backup button"
+  },
+  "driveBackupListEmpty": {
+    "message": "尚無雲端備份，請先按「建立雲端備份」。",
+    "description": "Empty backup list message"
+  },
+  "driveBackupCount": {
+    "message": "雲端備份 $1 筆",
+    "description": "Number of cloud backups",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "driveBackupItemMeta": {
+    "message": "大小：$1",
+    "description": "Backup list item size",
+    "placeholders": {
+      "size": {
+        "content": "$1",
+        "example": "12 KB"
+      }
+    }
+  },
+  "driveSelectBackupFirst": {
+    "message": "請先從清單選擇一筆備份",
+    "description": "No backup selected prompt"
+  },
+  "driveDeleteConfirm": {
+    "message": "確定要刪除所選的雲端備份嗎？此操作無法復原。",
+    "description": "Delete backup confirm"
+  },
+  "driveDeleteConfirmTitle": {
+    "message": "確認刪除備份",
+    "description": "Delete backup confirm title"
+  },
+  "driveDeleteSuccess": {
+    "message": "已刪除雲端備份",
+    "description": "Delete backup success"
+  },
+  "driveDeleteFailed": {
+    "message": "刪除備份失敗：$1",
+    "description": "Delete backup failed",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "error"
+      }
+    }
+  },
+  "driveBackupHelp": {
+    "message": "備份存放在 Google 隱藏應用資料區（與 Tampermonkey 相同），不會出現在「我的雲端硬碟」資料夾。最多保留 30 筆備份。",
+    "description": "Drive backup help"
+  },
+  "driveSetupHint": {
+    "message": "首次使用請在 Google Cloud Console 建立 OAuth 用戶端（類型：Chrome 擴充功能），並在 manifest.json 填入 Client ID，同時啟用 Google Drive API。詳見 GOOGLE_DRIVE_SETUP.md。",
+    "description": "Drive OAuth setup hint"
+  },
+  "driveNotConfigured": {
+    "message": "尚未設定 Google OAuth Client ID（請編輯 manifest.json）",
+    "description": "Drive OAuth not configured"
+  },
+  "driveNotConnected": {
+    "message": "連結 Google 帳號後，即可備份與還原設定",
+    "description": "Drive not connected"
+  },
+  "driveConnected": {
+    "message": "已連結：$1。",
+    "description": "Drive connected status",
+    "placeholders": {
+      "email": {
+        "content": "$1",
+        "example": "user@gmail.com"
+      }
+    }
+  },
+  "driveConnectedUnknown": {
+    "message": "Google 帳號",
+    "description": "Unknown Google account label"
+  },
+  "driveLastBackup": {
+    "message": "上次備份：$1",
+    "description": "Last backup time",
+    "placeholders": {
+      "time": {
+        "content": "$1",
+        "example": "2024/1/1 12:00:00"
+      }
+    }
+  },
+  "driveNeverBackedUp": {
+    "message": "尚無雲端備份",
+    "description": "Never backed up to drive"
+  },
+  "driveConnectSuccess": {
+    "message": "已成功連結 Google Drive",
+    "description": "Drive connect success"
+  },
+  "driveDisconnectSuccess": {
+    "message": "已取消 Google Drive 連結",
+    "description": "Drive disconnect success"
+  },
+  "driveUploadSuccess": {
+    "message": "已備份到 Google Drive",
+    "description": "Drive upload success"
+  },
+  "driveUploadFailed": {
+    "message": "雲端備份失敗：$1",
+    "description": "Drive upload failed",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "error"
+      }
+    }
+  },
+  "driveRestoreSuccess": {
+    "message": "已從 Google Drive 還原設定",
+    "description": "Drive restore success"
+  },
+  "driveRestoreFailed": {
+    "message": "雲端還原失敗：$1",
+    "description": "Drive restore failed",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "error"
+      }
+    }
+  },
+  "driveRestoreConfirm": {
+    "message": "確定要從 Google Drive 還原設定嗎？<br>這將覆蓋現有的本機設定。",
+    "description": "Drive restore confirm"
+  },
+  "driveRestoreConfirmTitle": {
+    "message": "確認從雲端還原",
+    "description": "Drive restore confirm title"
+  },
+  "driveAuthTokenFailed": {
+    "message": "無法取得 Google 授權",
+    "description": "Drive auth token error"
+  },
+  "driveBackupEmpty": {
+    "message": "備份內容為空",
+    "description": "Drive backup empty content"
+  },
+  "driveMissingFileId": {
+    "message": "缺少檔案 ID",
+    "description": "Drive missing file id"
+  },
+  "driveMissingBackupId": {
+    "message": "缺少備份檔 ID",
+    "description": "Drive restore missing file id"
+  },
+  "driveImportInvalidFormat": {
+    "message": "匯入資料格式無效",
+    "description": "Drive import invalid format"
+  },
+  "driveImportMissingVersion": {
+    "message": "缺少版本資訊",
+    "description": "Drive import missing version"
+  },
   "exportSuccess": {
     "message": "設定已成功匯出",
     "description": "Export success message"
@@ -526,8 +754,7 @@
   "enableAutoFollowHint": {
     "message": "提示：若需自動抓取追蹤，請到設定頁面開啟「自動追蹤」",
     "description": "Hint after authorization to enable auto follow in settings"
-  }
-  ,
+  },
   "autoFollowPromptTitle": {
     "message": "啟用自動追蹤？",
     "description": "Prompt title for enabling auto follow"
@@ -539,8 +766,7 @@
   "enableAction": {
     "message": "啟用",
     "description": "Enable action label"
-  }
-  ,
+  },
   "chatTranslationSettings": {
     "message": "聊天室翻譯設定",
     "description": "Chat translation settings section title"
@@ -568,9 +794,7 @@
   "translationRefreshHint": {
     "message": "變更翻譯設定後，請重新整理 Twitch 頁面以生效。",
     "description": "Hint to refresh page after changing translation settings"
-  }
-  ,
-  
+  },
   "accountCreatedAt": {
     "message": "帳號創立：$1",
     "description": "Account created at with localized date",
@@ -580,43 +804,63 @@
         "example": "2018/8/19 下午5:44:31"
       }
     }
-  }
-  ,
+  },
   "followAgeYearsDays": {
     "message": "已追蹤 $1 年 $2 天",
     "description": "Follow age with years and days",
     "placeholders": {
-      "years": { "content": "$1", "example": "2" },
-      "days": { "content": "$2", "example": "35" }
+      "years": {
+        "content": "$1",
+        "example": "2"
+      },
+      "days": {
+        "content": "$2",
+        "example": "35"
+      }
     }
   },
   "followAgeYearsOnly": {
     "message": "已追蹤 $1 年",
     "description": "Follow age with years only",
     "placeholders": {
-      "years": { "content": "$1", "example": "3" }
+      "years": {
+        "content": "$1",
+        "example": "3"
+      }
     }
   },
   "followAgeDaysOnly": {
     "message": "已追蹤 $1 天",
     "description": "Follow age with days only",
     "placeholders": {
-      "days": { "content": "$1", "example": "120" }
+      "days": {
+        "content": "$1",
+        "example": "120"
+      }
     }
   },
   "syncComplete": {
     "message": "同步完成！新增 $1 個頻道，移除 $2 個頻道",
     "description": "Sync complete message with additions and removals",
     "placeholders": {
-      "added": { "content": "$1", "example": "2" },
-      "removed": { "content": "$2", "example": "1" }
+      "added": {
+        "content": "$1",
+        "example": "2"
+      },
+      "removed": {
+        "content": "$2",
+        "example": "1"
+      }
     }
   },
   "removedChannels": {
     "message": "已移除 $1 個退追的頻道",
     "description": "Removed channels message",
     "placeholders": {
-      "count": { "content": "$1", "example": "3" }
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
     }
   },
   "useKDisplay": {
@@ -639,7 +883,10 @@
     "message": "載入直播紀錄發生錯誤：$1",
     "description": "載入 VODs 失敗時的錯誤訊息",
     "placeholders": {
-      "error": { "content": "$1", "example": "未知錯誤" }
+      "error": {
+        "content": "$1",
+        "example": "未知錯誤"
+      }
     }
   },
   "noVodsFoundForChannel": {
@@ -658,28 +905,34 @@
     "message": "$1 天前",
     "description": "相對日期：N 天前",
     "placeholders": {
-      "days": { "content": "$1", "example": "3" }
+      "days": {
+        "content": "$1",
+        "example": "3"
+      }
     }
-  }
-  ,
+  },
   "goToChannel": {
     "message": "頻道",
     "description": "前往頻道按鈕"
-  }
-  ,
+  },
   "followAgeHoursMinutes": {
     "message": "已追蹤 $1 小時 $2 分鐘",
     "description": "小於一天時的追蹤時間顯示",
     "placeholders": {
-      "hours": { "content": "$1", "example": "3" },
-      "minutes": { "content": "$2", "example": "15" }
+      "hours": {
+        "content": "$1",
+        "example": "3"
+      },
+      "minutes": {
+        "content": "$2",
+        "example": "15"
+      }
     }
   },
   "followingFor": {
     "message": "已追蹤",
     "description": "追蹤時間前綴（後備）"
-  }
-  ,
+  },
   "loadingMoreVods": {
     "message": "載入更多...",
     "description": "載入更多 VOD 狀態"
@@ -687,13 +940,11 @@
   "noMoreVods": {
     "message": "到底了",
     "description": "沒有更多 VOD"
-  }
-  ,
+  },
   "favoriteShort": {
     "message": "我的最愛",
     "description": "我的最愛短字"
-  }
-  ,
+  },
   "subscriberOnly": {
     "message": "訂閱",
     "description": "訂閱者限定影片徽章"

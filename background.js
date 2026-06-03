@@ -1,8 +1,11 @@
+importScripts('cloud-drive.js');
+
 const TWITCH_API_BASE = 'https://api.twitch.tv/helix';
 const TWITCH_OAUTH_BASE = 'https://id.twitch.tv/oauth2/authorize';
 const TWITCH_TOKEN_BASE = 'https://id.twitch.tv/oauth2/token';
 
 const TWITCH_CLIENT_ID = 'pujtelt7e3go829amtruwhoeido1rx';
+const TWITCH_GQL_CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko';
 const REDIRECT_URI = chrome.identity ? chrome.identity.getRedirectURL() : 'https://www.twitch.tv';
 
 // Kick (client-credentials public polling)
@@ -636,7 +639,11 @@ class StreamStateManager {
           slice.forEach(id => flagsMap.set(id, false));
         }
       }
-      const enriched = items.map(v => ({ ...v, isSubscriberOnly: !!flagsMap.get(v.id) }));
+      const enriched = items.map(v => ({
+        ...v,
+        isSubscriberOnly: !!flagsMap.get(v.id),
+        user_login: v.user_login || username
+      }));
       return { items: enriched, cursor: vodsData.pagination?.cursor || null };
       
     } catch (error) {
@@ -1307,6 +1314,151 @@ chrome.notifications.onClicked.addListener((notificationId) => {
   }
 });
 
+async function applySettingsImport(importData) {
+  if (!importData || typeof importData !== 'object') {
+    throw new Error(tsnI18n('driveImportInvalidFormat'));
+  }
+  if (!importData.version) {
+    throw new Error(tsnI18n('driveImportMissingVersion'));
+  }
+
+  const importPromises = [];
+
+  if (importData.settings) {
+    importPromises.push(tracker.write({ [STORAGE.settings]: importData.settings }));
+  }
+  if (importData.channels) {
+    importPromises.push(tracker.write({ [STORAGE.channels]: importData.channels }));
+  }
+  if (importData.kickChannels) {
+    importPromises.push(tracker.write({ [STORAGE.kickChannels]: importData.kickChannels }));
+  }
+  if (importData.notificationSettings) {
+    importPromises.push(tracker.write({ [STORAGE.notificationSettings]: importData.notificationSettings }));
+  }
+  if (importData.followDates) {
+    importPromises.push(tracker.write({ [STORAGE.followDates]: importData.followDates }));
+  }
+  if (importData.tsn_favorites) {
+    importPromises.push(chrome.storage.local.set({ tsn_favorites: importData.tsn_favorites }));
+  }
+  if (importData.chatTranslationSettings) {
+    importPromises.push(
+      chrome.storage.local.set({ chatTranslationSettings: importData.chatTranslationSettings })
+    );
+  }
+
+  await Promise.all(importPromises);
+
+  const settings = importData.settings || {};
+  const period = Math.max(1, Number(settings.pollMinutes || 1));
+  await chrome.alarms.clear('tsn_poll_v1');
+  chrome.alarms.create('tsn_poll_v1', { periodInMinutes: period });
+  await tracker.startCountdown(period);
+
+  setTimeout(() => {
+    try {
+      performPollAndBroadcast();
+    } catch (e) {
+      console.error('Error performing poll after import:', e);
+    }
+  }, 0);
+}
+
+async function fetchChannelChattersCount(channel) {
+  const login = String(channel || '').trim().toLowerCase();
+  if (!login) {
+    throw new Error('Invalid channel');
+  }
+
+  const query =
+    'query GetChannelChattersCount($name: String!) {\n' +
+    '  channel(name: $name) {\n' +
+    '    chatters {\n' +
+    '      count\n' +
+    '    }\n' +
+    '  }\n' +
+    '}';
+
+  const headers = {
+    'Client-ID': TWITCH_GQL_CLIENT_ID,
+    'Content-Type': 'application/json'
+  };
+
+  try {
+    const tokenData = await tracker.read([STORAGE.accessToken, STORAGE.tokenExpiry]);
+    const token = tokenData[STORAGE.accessToken];
+    const expiry = tokenData[STORAGE.tokenExpiry];
+    if (token && expiry && Date.now() < expiry) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+  } catch (_) {}
+
+  const response = await fetch('https://gql.twitch.tv/gql', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      operationName: 'GetChannelChattersCount',
+      variables: { name: login },
+      query
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`GQL HTTP ${response.status}`);
+  }
+
+  const json = await response.json();
+  if (Array.isArray(json?.errors) && json.errors.length > 0) {
+    throw new Error(json.errors[0]?.message || 'GQL error');
+  }
+
+  const count = json?.data?.channel?.chatters?.count;
+  if (count == null || Number.isNaN(Number(count))) {
+    return null;
+  }
+
+  return Number(count);
+}
+
+async function buildSettingsExportPayload() {
+  const allData = await tracker.read([
+    STORAGE.settings,
+    STORAGE.channels,
+    STORAGE.kickChannels,
+    STORAGE.notificationSettings,
+    STORAGE.followDates
+  ]);
+
+  const localData = await chrome.storage.local.get([
+    'tsn_favorites',
+    'chatTranslationSettings'
+  ]);
+
+  const localTimestamp = (() => {
+    try {
+      const lang = typeof navigator !== 'undefined' && navigator.language ? navigator.language : undefined;
+      return new Date().toLocaleString(lang);
+    } catch (_) {
+      return new Date().toLocaleString();
+    }
+  })();
+
+  return {
+    version: '1.1',
+    format: 'twitch-live-notifier-backup',
+    timestamp: localTimestamp,
+    exportedAt: new Date().toISOString(),
+    settings: allData[STORAGE.settings] || {},
+    channels: allData[STORAGE.channels] || [],
+    kickChannels: allData[STORAGE.kickChannels] || [],
+    notificationSettings: allData[STORAGE.notificationSettings] || {},
+    followDates: allData[STORAGE.followDates] || {},
+    tsn_favorites: localData.tsn_favorites || {},
+    chatTranslationSettings: localData.chatTranslationSettings || {}
+  };
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
     if (msg?.type === 'streams:list') {
@@ -1626,9 +1778,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       const settings = obj[STORAGE.settings] || {};
       if (settings.autoBonusEnabled === undefined) settings.autoBonusEnabled = true;
       if (settings.chattersCountEnabled === undefined) settings.chattersCountEnabled = false;
-      if (settings.hideOffline === undefined) {
-        settings.hideOffline = true;
-      }
       sendResponse({ settings });
       return;
     }
@@ -1640,9 +1789,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         const next = Object.assign({}, existingSettings, msg.settings || {});
         
         next.pollMinutes = Math.max(1, Number(next.pollMinutes || 1));
-        if (next.hideOffline === undefined) {
-          next.hideOffline = true;
-        }
         if (next.autoBonusEnabled === undefined) {
           next.autoBonusEnabled = true;
         }
@@ -2149,42 +2295,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     }
     if (msg?.type === 'settings:export') {
       try {
-        console.log('Exporting settings...');
-        
-        const allData = await tracker.read([
-          STORAGE.settings,
-          STORAGE.channels,
-          STORAGE.kickChannels,
-          STORAGE.notificationSettings,
-          STORAGE.followDates
-        ]);
-        
-        const localData = await chrome.storage.local.get(['tsn_favorites']);
-        console.log('Favorites data from storage:', localData.tsn_favorites);
-        
-        const localTimestamp = (() => {
-          try {
-            const lang = (typeof navigator !== 'undefined' && navigator.language) ? navigator.language : undefined;
-            return new Date().toLocaleString(lang);
-          } catch (_) {
-            return new Date().toLocaleString();
-          }
-        })();
-
-        const exportData = {
-          version: '1.0',
-          timestamp: localTimestamp,
-          settings: allData[STORAGE.settings] || {},
-          channels: allData[STORAGE.channels] || [],
-          kickChannels: allData[STORAGE.kickChannels] || [],
-          notificationSettings: allData[STORAGE.notificationSettings] || {},
-          followDates: allData[STORAGE.followDates] || {},
-          tsn_favorites: localData.tsn_favorites || {}
-        };
-        
-        console.log('Export data includes favorites:', exportData.tsn_favorites);
-        
-        console.log('Settings exported:', exportData);
+        const exportData = await buildSettingsExportPayload();
         sendResponse({ ok: true, data: exportData });
       } catch (e) {
         console.error('Error exporting settings:', e);
@@ -2194,62 +2305,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     }
     if (msg?.type === 'settings:import') {
       try {
-        console.log('Importing settings...', msg.data);
-        
-        if (!msg.data || typeof msg.data !== 'object') {
-          throw new Error('Invalid import data format');
-        }
-        
-        const importData = msg.data;
-        
-        if (!importData.version) {
-          throw new Error('Missing version information');
-        }
-        
-        const importPromises = [];
-        
-        if (importData.settings) {
-          importPromises.push(tracker.write({ [STORAGE.settings]: importData.settings }));
-        }
-        
-        if (importData.channels) {
-          importPromises.push(tracker.write({ [STORAGE.channels]: importData.channels }));
-        }
-
-        if (importData.kickChannels) {
-          importPromises.push(tracker.write({ [STORAGE.kickChannels]: importData.kickChannels }));
-        }
-        
-        if (importData.notificationSettings) {
-          importPromises.push(tracker.write({ [STORAGE.notificationSettings]: importData.notificationSettings }));
-        }
-        
-        if (importData.followDates) {
-          importPromises.push(tracker.write({ [STORAGE.followDates]: importData.followDates }));
-        }
-        
-        if (importData.tsn_favorites) {
-          importPromises.push(chrome.storage.local.set({ tsn_favorites: importData.tsn_favorites }));
-        }
-        
-        await Promise.all(importPromises);
-        
-        const settings = importData.settings || {};
-        const period = Math.max(1, Number(settings.pollMinutes || 1));
-        await chrome.alarms.clear('tsn_poll_v1');
-        chrome.alarms.create('tsn_poll_v1', { periodInMinutes: period });
-        
-        await tracker.startCountdown(period);
-        
-        setTimeout(() => {
-          try {
-            performPollAndBroadcast();
-          } catch (e) {
-            console.error('Error performing poll after import:', e);
-          }
-        }, 0);
-        
-        console.log('Settings imported successfully');
+        await applySettingsImport(msg.data);
         sendResponse({ ok: true });
       } catch (e) {
         console.error('Error importing settings:', e);
@@ -2276,6 +2332,102 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       } catch (e) {
         console.error('Error updating translation settings:', e);
         sendResponse({ error: String(e?.message || e) });
+      }
+      return;
+    }
+    if (msg?.type === 'chatters:count') {
+      try {
+        const count = await fetchChannelChattersCount(msg.channel);
+        sendResponse({ ok: true, count });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e?.message || e) });
+      }
+      return;
+    }
+    if (msg?.type === 'cloudDrive:authStatus') {
+      try {
+        const status = await getCloudDriveAuthStatus();
+        const meta = await chrome.storage.local.get(['tsn_drive_last_backup']);
+        sendResponse({ ok: true, status, lastBackup: meta.tsn_drive_last_backup || null });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e?.message || e) });
+      }
+      return;
+    }
+    if (msg?.type === 'cloudDrive:signIn') {
+      try {
+        const status = await signInGoogleDrive();
+        sendResponse({ ok: true, status });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e?.message || e) });
+      }
+      return;
+    }
+    if (msg?.type === 'cloudDrive:revoke') {
+      try {
+        await revokeGoogleDriveAccess();
+        await chrome.storage.local.remove(['tsn_drive_last_backup']);
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e?.message || e) });
+      }
+      return;
+    }
+    if (msg?.type === 'cloudDrive:list') {
+      try {
+        const files = await listTsnDriveBackups();
+        sendResponse({ ok: true, files });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e?.message || e) });
+      }
+      return;
+    }
+    if (msg?.type === 'cloudDrive:upload') {
+      try {
+        const exportData = await buildSettingsExportPayload();
+        const json = JSON.stringify(exportData, null, 2);
+        const file = await uploadTsnDriveBackup(json, msg.fileName);
+        const lastBackup = {
+          time: exportData.exportedAt,
+          fileId: file.id,
+          name: file.name,
+          modifiedTime: file.modifiedTime
+        };
+        await chrome.storage.local.set({ tsn_drive_last_backup: lastBackup });
+        sendResponse({ ok: true, file, lastBackup });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e?.message || e) });
+      }
+      return;
+    }
+    if (msg?.type === 'cloudDrive:download') {
+      try {
+        const text = await downloadTsnDriveBackup(msg.fileId);
+        sendResponse({ ok: true, text });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e?.message || e) });
+      }
+      return;
+    }
+    if (msg?.type === 'cloudDrive:delete') {
+      try {
+        await deleteTsnDriveBackup(msg.fileId);
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e?.message || e) });
+      }
+      return;
+    }
+    if (msg?.type === 'cloudDrive:restore') {
+      try {
+        const fileId = msg.fileId;
+        if (!fileId) throw new Error(tsnI18n('driveMissingBackupId'));
+        const text = await downloadTsnDriveBackup(fileId);
+        const importData = JSON.parse(text);
+        await applySettingsImport(importData);
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e?.message || e) });
       }
       return;
     }
