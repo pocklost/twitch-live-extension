@@ -179,6 +179,10 @@
     "message": "Twitch チャッター数",
     "description": "Twitch Chatters Count feature label"
   },
+  "featureSharedChatSource": {
+    "message": "共有チャット送信元の識別",
+    "description": "Shared chat source identifier feature label"
+  },
   "settingsRefreshHint": {
     "message": "設定を変更した後、Twitch ページを再読み込みして反映してください。",
     "description": "Notice shown under settings"

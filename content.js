@@ -25,28 +25,23 @@ const translationStyles = `
     word-wrap: break-word;
     white-space: normal;
     z-index: 999999;
-    opacity: 0;
-    visibility: hidden;
-    transition: all 0.2s ease;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
     pointer-events: auto;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
     border: 1px solid rgba(255, 255, 255, 0.2);
     font-family: inherit;
   }
   
-  .translated-message:hover .original-text-tooltip {
-    opacity: 1;
-    visibility: visible;
-  }
-  
   .original-text-tooltip::after {
     content: '';
     position: absolute;
-    top: 100%;
+    bottom: 100%;
     left: 50%;
     transform: translateX(-50%);
     border: 5px solid transparent;
-    border-top-color: rgba(0, 0, 0, 0.9);
+    border-bottom-color: rgba(0, 0, 0, 0.95);
   }
 
   p[data-a-target="stream-title"][data-tsn-translated="1"],
@@ -67,6 +62,714 @@ const styleSheet = document.createElement('style');
 styleSheet.id = 'chat-translator-styles';
 styleSheet.textContent = translationStyles;
 
+const SHARED_CHAT_SOURCE_STYLE_ID = 'shared-chat-source-styles';
+const SHARED_CHAT_GQL_ENDPOINT = 'https://gql.twitch.tv/gql';
+const SHARED_CHAT_GQL_CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko';
+const sharedChatSourceState = {
+  enabled: false,
+  observer: null,
+  chatContainer: null,
+  sharedChannels: new Set(),
+  refreshTimer: null,
+  ready: false,
+  reidentifyTimers: new WeakMap(),
+  iconCache: new Map(),
+  iconInflight: new Map(),
+  userSourceCache: new Map(),
+  roomIdByLogin: new Map(),
+  loginByRoomId: new Map(),
+  sourceRoomByUserLogin: new Map(),
+  ircTapInstalled: false,
+  isMutating: false,
+  colorPalette: ['#9146FF', '#E91E63', '#00BCD4', '#FF9800', '#4CAF50', '#FF5722', '#9C27B0', '#3F51B5'],
+  colorIndex: 0
+};
+
+const sharedChatSourceStyles = `
+  .tsn-source-badge {
+    display: inline-block !important;
+    width: 18px !important;
+    height: 18px !important;
+    margin-right: 4px !important;
+    vertical-align: middle !important;
+    border-radius: 2px !important;
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    user-select: none !important;
+    flex-shrink: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .tsn-source-icon {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 2px !important;
+    object-fit: cover !important;
+    display: block !important;
+  }
+`;
+
+const sharedChatSource = {
+  installIrcTap() {
+    if (sharedChatSourceState.ircTapInstalled) return;
+    sharedChatSourceState.ircTapInstalled = true;
+
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('irc-tap.page.js');
+    script.async = false;
+    (document.documentElement || document.head || document.body).appendChild(script);
+    script.remove();
+
+    window.addEventListener('__tsn_shared_irc_raw', (event) => {
+      const payload = event?.detail;
+      if (typeof payload !== 'string') return;
+      this.parseIrcPayload(payload);
+    });
+  },
+
+  parseIrcPayload(payload) {
+    const lines = payload.split('\r\n');
+    for (const line of lines) {
+      if (!line || line.indexOf('source-room-id=') === -1) continue;
+      const parsed = this.parseIrcLine(line);
+      if (!parsed) continue;
+      if (!parsed.userLogin || !parsed.sourceRoomId) continue;
+      sharedChatSourceState.sourceRoomByUserLogin.set(parsed.userLogin, parsed.sourceRoomId);
+      if (sharedChatSourceState.sourceRoomByUserLogin.size > 8000) {
+        const oldest = sharedChatSourceState.sourceRoomByUserLogin.keys().next().value;
+        if (oldest) sharedChatSourceState.sourceRoomByUserLogin.delete(oldest);
+      }
+    }
+  },
+
+  parseIrcLine(line) {
+    let rest = String(line || '');
+    if (!rest) return null;
+
+    let tags = {};
+    if (rest.startsWith('@')) {
+      const firstSpace = rest.indexOf(' ');
+      if (firstSpace <= 0) return null;
+      tags = this.parseIrcTags(rest.slice(1, firstSpace));
+      rest = rest.slice(firstSpace + 1);
+    }
+
+    let prefix = '';
+    if (rest.startsWith(':')) {
+      const firstSpace = rest.indexOf(' ');
+      if (firstSpace <= 0) return null;
+      prefix = rest.slice(1, firstSpace);
+      rest = rest.slice(firstSpace + 1);
+    }
+
+    const firstSpace = rest.indexOf(' ');
+    const command = (firstSpace === -1 ? rest : rest.slice(0, firstSpace)).toUpperCase();
+    if (command !== 'PRIVMSG' && command !== 'USERNOTICE') return null;
+
+    const sourceRoomId = String(tags['source-room-id'] || '').trim();
+    if (!sourceRoomId) return null;
+
+    const userLogin = String(tags['login'] || this.extractLoginFromPrefix(prefix) || '').toLowerCase();
+    if (!userLogin) return null;
+
+    return { userLogin, sourceRoomId };
+  },
+
+  parseIrcTags(raw) {
+    const out = {};
+    if (!raw) return out;
+    const parts = raw.split(';');
+    for (const part of parts) {
+      const idx = part.indexOf('=');
+      if (idx === -1) {
+        out[part] = '';
+      } else {
+        out[part.slice(0, idx)] = part.slice(idx + 1);
+      }
+    }
+    return out;
+  },
+
+  extractLoginFromPrefix(prefix) {
+    const raw = String(prefix || '');
+    const ex = raw.indexOf('!');
+    if (ex <= 0) return '';
+    return raw.slice(0, ex);
+  },
+
+  withDomMute(fn) {
+    sharedChatSourceState.isMutating = true;
+    try {
+      fn();
+    } finally {
+      queueMicrotask(() => {
+        sharedChatSourceState.isMutating = false;
+      });
+    }
+  },
+
+  needsBadgeRepair(messageNode) {
+    if (!messageNode) return false;
+    if (messageNode.querySelector(':scope > .tsn-source-badge, .tsn-source-badge')) return false;
+    return !!messageNode.dataset.tsnSourceTagged;
+  },
+
+  scheduleIdentify(messageNode, delayMs = 60) {
+    if (!messageNode || !this.needsBadgeRepair(messageNode)) return;
+    const existing = sharedChatSourceState.reidentifyTimers.get(messageNode);
+    if (existing) clearTimeout(existing);
+    const id = setTimeout(() => {
+      sharedChatSourceState.reidentifyTimers.delete(messageNode);
+      if (!this.needsBadgeRepair(messageNode)) return;
+      this.repairBadge(messageNode);
+    }, delayMs);
+    sharedChatSourceState.reidentifyTimers.set(messageNode, id);
+  },
+
+  repairBadge(messageNode) {
+    const streamerName = messageNode?.dataset?.tsnSourceTagged;
+    if (!messageNode || !streamerName) return false;
+    this.withDomMute(() => this.renderBadge(messageNode, streamerName));
+    return true;
+  },
+
+  findChatContainer() {
+    try {
+      for (const selector of CHAT_CONTAINER_SELECTORS || []) {
+        const el = document.querySelector(selector);
+        if (el) return el;
+      }
+    } catch (_) {}
+    return null;
+  },
+
+  refreshSharedChannelsFromHeader() {
+    const next = new Set();
+    const buttons = document.querySelectorAll('.stream-chat-header [aria-haspopup="dialog"][role="button"][aria-label]');
+    for (const btn of buttons) {
+      const label = btn.getAttribute('aria-label') || '';
+      const login = this.extractChannelNameFromAvatarLabel(label);
+      if (!login) continue;
+      const lower = login.toLowerCase();
+      next.add(lower);
+
+      const headerIcon =
+        this.extractImageUrlFromElement(btn.querySelector('img')) ||
+        this.extractImageUrlFromElement(btn.querySelector('picture source, source[srcset]')) ||
+        this.extractImageUrlFromElement(btn.querySelector('[style*="background-image"], [class*="avatar"], figure, div'));
+      if (headerIcon) {
+        const info = this.getStreamerInfo(lower);
+        info.icon = headerIcon;
+      }
+      this.updateRoomMappingForLogin(lower);
+    }
+    sharedChatSourceState.sharedChannels = next;
+    sharedChatSourceState.ready = next.size >= 2;
+  },
+
+  processBacklog(limit = 60) {
+    const container = sharedChatSourceState.chatContainer || this.findChatContainer();
+    if (!container) return;
+    const msgs = Array.from(container.querySelectorAll('.chat-line__message'));
+    msgs.slice(Math.max(0, msgs.length - limit)).forEach((m) => this.identifyMessage(m));
+  },
+
+  isLikelyChannelLogin(token) {
+    const t = String(token || '').toLowerCase();
+    if (!t) return false;
+    if (!/^[a-z][a-z0-9_]{3,24}$/.test(t)) return false;
+    const blocked = new Set([
+      'badge',
+      'badges',
+      'insigne',
+      'insignes',
+      'abzeichen',
+      'sign',
+      'signs',
+      'знак',
+      'значок',
+      'значки',
+      'viewer',
+      'views',
+      'vip',
+      'moderator',
+      'mod',
+      'admin',
+      'staff',
+      'turbo',
+      'subscriber',
+      'founder',
+      'partner',
+      'verified',
+      'prime'
+    ]);
+    if (blocked.has(t)) return false;
+    return true;
+  },
+
+  ensureStyle() {
+    if (document.getElementById(SHARED_CHAT_SOURCE_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = SHARED_CHAT_SOURCE_STYLE_ID;
+    style.textContent = sharedChatSourceStyles;
+    document.head.appendChild(style);
+  },
+
+  pickBestImageUrlFromSrcset(srcset) {
+    const raw = String(srcset || '').trim();
+    if (!raw) return null;
+    const entries = raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const [url, descriptor] = part.split(/\s+/, 2);
+        const w = descriptor && descriptor.endsWith('w') ? Number(descriptor.slice(0, -1)) : NaN;
+        const x = descriptor && descriptor.endsWith('x') ? Number(descriptor.slice(0, -1)) : NaN;
+        const score = Number.isFinite(w) ? w : Number.isFinite(x) ? x * 1000 : 0;
+        return { url, score };
+      })
+      .filter((e) => e.url);
+    if (entries.length === 0) return null;
+    entries.sort((a, b) => b.score - a.score);
+    return entries[0].url || null;
+  },
+
+  extractImageUrlFromElement(el) {
+    if (!el) return null;
+    if (el.tagName === 'IMG') {
+      const img = el;
+      return (
+        img.currentSrc ||
+        img.src ||
+        this.pickBestImageUrlFromSrcset(img.getAttribute('srcset')) ||
+        img.getAttribute('data-src') ||
+        img.getAttribute('data-a-src') ||
+        null
+      );
+    }
+    if (el.tagName === 'SOURCE') {
+      return (
+        this.pickBestImageUrlFromSrcset(el.getAttribute('srcset')) ||
+        el.getAttribute('src') ||
+        null
+      );
+    }
+    try {
+      const bg = window.getComputedStyle(el).backgroundImage || '';
+      const m = bg.match(/url\(["']?(.*?)["']?\)/i);
+      if (m && m[1]) return m[1];
+    } catch (_) {}
+    return null;
+  },
+
+  getCurrentChannel() {
+    const parts = window.location.pathname.split('/').filter(Boolean);
+    if (parts[0] === 'popout') return (parts[1] || '').toLowerCase();
+    return (parts[0] || '').toLowerCase();
+  },
+
+  extractChannelNameFromAvatarLabel(label) {
+    const trimmed = String(label || '').trim();
+    if (!trimmed) return null;
+    const tokens = trimmed.match(/[a-z0-9_]{2,25}/gi) || [];
+    if (tokens.length === 0) return null;
+    const stop = new Set([
+      'badge',
+      'badges',
+      'insigne',
+      'insignes',
+      'abzeichen',
+      'значок',
+      'значки',
+      '徽章',
+      'バッジ',
+      '배지'
+    ]);
+    for (let i = tokens.length - 1; i >= 0; i--) {
+      const t = String(tokens[i] || '').toLowerCase();
+      if (!t || stop.has(t)) continue;
+      if (this.isLikelyChannelLogin(t)) return t;
+    }
+    return null;
+  },
+
+  extractChannelNameFromBadgeLabel(label) {
+    const raw = String(label || '').trim();
+    if (!raw) return null;
+    const lastComma = raw.lastIndexOf(',');
+    if (lastComma === -1) return null;
+    const tail = raw.slice(lastComma + 1).trim();
+    const tokens = tail.match(/[a-z0-9_]{2,25}/gi) || [];
+    if (tokens.length === 0) return null;
+    const stop = new Set([
+      'badge',
+      'badges',
+      'insigne',
+      'insignes',
+      'abzeichen',
+      'sign',
+      'signs',
+      'знак',
+      'значок',
+      'значки',
+      '徽章',
+      'バッジ',
+      '배지'
+    ]);
+    for (let i = tokens.length - 1; i >= 0; i--) {
+      const t = String(tokens[i] || '').toLowerCase();
+      if (!t || stop.has(t)) continue;
+      if (this.isLikelyChannelLogin(t)) return t;
+    }
+    return null;
+  },
+
+  findAvatarFromHeader(channelName) {
+    const avatarContainers = document.querySelectorAll('.stream-chat-header [aria-haspopup="dialog"][role="button"]');
+    for (const container of avatarContainers) {
+      const label = container.getAttribute('aria-label') || '';
+      if (this.extractChannelNameFromAvatarLabel(label) !== channelName.toLowerCase()) continue;
+      const img = container.querySelector('img');
+      const imgUrl = this.extractImageUrlFromElement(img);
+      if (imgUrl) return imgUrl;
+      const source = container.querySelector('picture source, source[srcset]');
+      const sourceUrl = this.extractImageUrlFromElement(source);
+      if (sourceUrl) return sourceUrl;
+      const bgNode = container.querySelector('[style*="background-image"], [class*="avatar"], figure, div');
+      const bgUrl = this.extractImageUrlFromElement(bgNode);
+      if (bgUrl) return bgUrl;
+    }
+    return null;
+  },
+
+  async fetchAvatarFromApi(channelName) {
+    const lowerName = channelName.toLowerCase();
+    if (sharedChatSourceState.iconInflight.has(lowerName)) {
+      return sharedChatSourceState.iconInflight.get(lowerName);
+    }
+    const req = (async () => {
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timeoutId = controller ? setTimeout(() => controller.abort(), 6000) : null;
+      try {
+        const response = await fetch(SHARED_CHAT_GQL_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Client-ID': SHARED_CHAT_GQL_CLIENT_ID
+          },
+          body: JSON.stringify({
+            query: 'query SharedChatUserAvatar($login: String!) { user(login: $login) { profileImageURL(width: 70) } }',
+            variables: { login: lowerName }
+          }),
+          signal: controller ? controller.signal : undefined
+        });
+        if (!response.ok) return null;
+        const data = await response.json();
+        return data?.data?.user?.profileImageURL || null;
+      } catch (_) {
+        return null;
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+        sharedChatSourceState.iconInflight.delete(lowerName);
+      }
+    })();
+    sharedChatSourceState.iconInflight.set(lowerName, req);
+    return req;
+  },
+
+  async fetchUserMetaByLogin(channelName) {
+    const lowerName = channelName.toLowerCase();
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 6000) : null;
+    try {
+      const response = await fetch(SHARED_CHAT_GQL_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Client-ID': SHARED_CHAT_GQL_CLIENT_ID
+        },
+        body: JSON.stringify({
+          query: 'query SharedChatUserMeta($login: String!) { user(login: $login) { id profileImageURL(width: 70) } }',
+          variables: { login: lowerName }
+        }),
+        signal: controller ? controller.signal : undefined
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      const user = data?.data?.user;
+      if (!user?.id) return null;
+      return {
+        roomId: String(user.id),
+        icon: user.profileImageURL || null
+      };
+    } catch (_) {
+      return null;
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  },
+
+  async updateRoomMappingForLogin(login) {
+    const lower = String(login || '').toLowerCase();
+    if (!lower) return;
+    if (sharedChatSourceState.roomIdByLogin.has(lower)) return;
+    const meta = await this.fetchUserMetaByLogin(lower);
+    if (!meta?.roomId) return;
+    sharedChatSourceState.roomIdByLogin.set(lower, meta.roomId);
+    sharedChatSourceState.loginByRoomId.set(meta.roomId, lower);
+    if (meta.icon) {
+      const info = this.getStreamerInfo(lower);
+      info.icon = meta.icon;
+    }
+  },
+
+  getStreamerInfo(name) {
+    const lowerName = name.toLowerCase();
+    if (!sharedChatSourceState.iconCache.has(lowerName)) {
+      sharedChatSourceState.iconCache.set(lowerName, {
+        color: sharedChatSourceState.colorPalette[sharedChatSourceState.colorIndex++ % sharedChatSourceState.colorPalette.length],
+        icon: null
+      });
+    }
+    return sharedChatSourceState.iconCache.get(lowerName);
+  },
+
+  getStreamerNameFromMessage(messageNode) {
+    const userLogin = (messageNode.getAttribute('data-a-user') || '').toLowerCase();
+    if (userLogin) {
+      const sourceRoomId = sharedChatSourceState.sourceRoomByUserLogin.get(userLogin);
+      if (sourceRoomId) {
+        const mapped = sharedChatSourceState.loginByRoomId.get(sourceRoomId);
+        if (mapped) return mapped;
+      }
+
+      const cachedSource = sharedChatSourceState.userSourceCache.get(userLogin);
+      if (cachedSource) return cachedSource;
+    }
+
+    const byRoom = messageNode.getAttribute('data-room');
+    if (byRoom) return byRoom.toLowerCase();
+
+    const badges = messageNode.querySelectorAll('.chat-badge');
+    for (const badge of badges) {
+      const label = badge.getAttribute('aria-label') || '';
+      const channelName = this.extractChannelNameFromBadgeLabel(label);
+      if (!channelName || channelName.length <= 1) continue;
+      const lower = channelName.toLowerCase();
+      if (sharedChatSourceState.sharedChannels?.has(lower)) return lower;
+    }
+
+    return null;
+  },
+
+  async updateIconForStreamer(streamerName) {
+    const info = this.getStreamerInfo(streamerName);
+    if (info.icon) return info.icon;
+    const fromHeader = this.findAvatarFromHeader(streamerName);
+    if (fromHeader) {
+      info.icon = fromHeader;
+      return info.icon;
+    }
+    const fromApi = await this.fetchAvatarFromApi(streamerName);
+    if (fromApi) info.icon = fromApi;
+    return info.icon;
+  },
+
+  findBadgeHost(messageNode) {
+    if (!messageNode) return null;
+    const usernameContainer = messageNode.querySelector('.chat-line__username-container');
+    if (usernameContainer) {
+      const withBadges = usernameContainer.querySelector(':scope > span:has(.chat-badge), :scope > span button:has(.chat-badge)');
+      if (withBadges) {
+        return withBadges.closest('span') || withBadges;
+      }
+
+      const firstSpan = usernameContainer.querySelector(':scope > span');
+      if (firstSpan) return firstSpan;
+    }
+
+    const legacy = messageNode.querySelector('.chat-line__message--badges, .chat-line__badges');
+    if (legacy) return legacy;
+
+    return null;
+  },
+
+  renderBadge(messageNode, streamerName) {
+    const info = this.getStreamerInfo(streamerName);
+    const existing = messageNode.querySelector('.tsn-source-badge');
+    if (existing) existing.remove();
+
+    const badge = document.createElement('div');
+    badge.className = 'tsn-source-badge';
+    const host = this.findBadgeHost(messageNode) || messageNode;
+    host.insertBefore(badge, host.firstChild);
+
+    badge.title = `Source: ${streamerName}`;
+    if (info.icon) {
+      badge.innerHTML = `<img class="tsn-source-icon" src="${info.icon}" alt="">`;
+      delete badge.dataset.initial;
+      badge.style.backgroundColor = info.color;
+    } else {
+      const fallbackMark = '?';
+      badge.dataset.initial = fallbackMark;
+      badge.style.backgroundColor = info.color;
+      badge.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;color:white;font-size:10px;height:100%">${fallbackMark}</div>`;
+    }
+
+    messageNode.style.borderLeft = `2px solid ${info.color}`;
+    messageNode.style.paddingLeft = '4px';
+    messageNode.dataset.tsnSourceTagged = streamerName;
+  },
+
+  async identifyMessage(messageNode) {
+    if (!messageNode || !sharedChatSourceState.enabled) return;
+    if (!sharedChatSourceState.ready) return;
+    const streamerName =
+      messageNode.dataset.tsnSourceTagged ||
+      this.getStreamerNameFromMessage(messageNode);
+    if (!streamerName) return;
+
+    const userLogin = (messageNode.getAttribute('data-a-user') || '').toLowerCase();
+    if (userLogin) {
+      sharedChatSourceState.userSourceCache.set(userLogin, streamerName);
+      if (sharedChatSourceState.userSourceCache.size > 4000) {
+        const oldestKey = sharedChatSourceState.userSourceCache.keys().next().value;
+        if (oldestKey) sharedChatSourceState.userSourceCache.delete(oldestKey);
+      }
+    }
+
+    this.withDomMute(() => this.renderBadge(messageNode, streamerName));
+    await this.updateIconForStreamer(streamerName);
+    if (messageNode.isConnected) {
+      this.withDomMute(() => this.renderBadge(messageNode, streamerName));
+    }
+  },
+
+  clearBadges() {
+    document.querySelectorAll('.tsn-source-badge').forEach((node) => node.remove());
+    document.querySelectorAll('.chat-line__message[data-tsn-source-tagged]').forEach((node) => {
+      delete node.dataset.tsnSourceTagged;
+      node.style.borderLeft = '';
+      node.style.paddingLeft = '';
+    });
+    sharedChatSourceState.userSourceCache.clear();
+  },
+
+  repairMissingBadges(limit = 40) {
+    const container = sharedChatSourceState.chatContainer || this.findChatContainer();
+    if (!container) return;
+    const msgs = Array.from(container.querySelectorAll('.chat-line__message[data-tsn-source-tagged]'));
+    msgs.slice(Math.max(0, msgs.length - limit)).forEach((msg) => {
+      if (this.needsBadgeRepair(msg)) this.repairBadge(msg);
+    });
+  },
+
+  async repairMissingIcons(limit = 40) {
+    const container = sharedChatSourceState.chatContainer || this.findChatContainer();
+    if (!container) return;
+    const msgs = Array.from(container.querySelectorAll('.chat-line__message[data-tsn-source-tagged]'));
+    const recent = msgs.slice(Math.max(0, msgs.length - limit));
+    for (const msg of recent) {
+      if (!msg.isConnected) continue;
+      const streamerName = msg.dataset.tsnSourceTagged;
+      if (!streamerName) continue;
+      const info = this.getStreamerInfo(streamerName);
+      if (info.icon) continue;
+      await this.updateIconForStreamer(streamerName);
+      if (msg.isConnected) {
+        this.withDomMute(() => this.renderBadge(msg, streamerName));
+      }
+    }
+  },
+
+  startObserver() {
+    if (sharedChatSourceState.observer) return;
+    this.installIrcTap();
+    this.refreshSharedChannelsFromHeader();
+    if (!sharedChatSourceState.refreshTimer) {
+      sharedChatSourceState.refreshTimer = setInterval(() => {
+        if (!sharedChatSourceState.enabled) return;
+        this.refreshSharedChannelsFromHeader();
+        const nextContainer = this.findChatContainer();
+        if (nextContainer && nextContainer !== sharedChatSourceState.chatContainer) {
+          this.stopObserver();
+          this.startObserver();
+        }
+        this.repairMissingBadges(40);
+        this.repairMissingIcons(40);
+      }, 1500);
+    }
+
+    const container = this.findChatContainer();
+    if (!container) return;
+    sharedChatSourceState.chatContainer = container;
+    sharedChatSourceState.observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType !== Node.ELEMENT_NODE) return;
+          if (node.classList?.contains('tsn-source-badge')) return;
+          const asEl = node;
+          if (asEl.classList?.contains('chat-line__message')) {
+            this.identifyMessage(asEl);
+          } else {
+            const nested = asEl.querySelectorAll?.('.chat-line__message');
+            if (nested && nested.length) {
+              nested.forEach((m) => this.identifyMessage(m));
+            }
+          }
+
+          const hostMsg = asEl.closest?.('.chat-line__message');
+          if (hostMsg) this.scheduleIdentify(hostMsg, 50);
+        });
+
+        mutation.removedNodes.forEach((node) => {
+          if (node.nodeType !== Node.ELEMENT_NODE) return;
+          if (node.classList?.contains('tsn-source-badge')) {
+            const hostMsg = mutation.target?.closest?.('.chat-line__message');
+            if (hostMsg) this.scheduleIdentify(hostMsg, 0);
+            return;
+          }
+          if (node.querySelector?.('.tsn-source-badge')) {
+            const hostMsg = mutation.target?.closest?.('.chat-line__message');
+            if (hostMsg) this.scheduleIdentify(hostMsg, 0);
+          }
+        });
+      }
+    });
+    sharedChatSourceState.observer.observe(container, { childList: true, subtree: true });
+  },
+
+  stopObserver() {
+    if (!sharedChatSourceState.observer) return;
+    sharedChatSourceState.observer.disconnect();
+    sharedChatSourceState.observer = null;
+    sharedChatSourceState.chatContainer = null;
+    sharedChatSourceState.ready = false;
+    if (sharedChatSourceState.refreshTimer) {
+      clearInterval(sharedChatSourceState.refreshTimer);
+      sharedChatSourceState.refreshTimer = null;
+    }
+  },
+
+  applySettings(settings) {
+    sharedChatSourceState.enabled = settings.enabled === true;
+    if (sharedChatSourceState.enabled) {
+      this.ensureStyle();
+      this.startObserver();
+    } else {
+      this.stopObserver();
+      this.clearBadges();
+    }
+  },
+
+  init() {
+    chrome.storage.local.get(['tsn_settings'], (result) => {
+      const settings = result.tsn_settings || {};
+      this.applySettings({ enabled: settings.sharedChatSourceEnabled === true });
+    });
+  }
+};
+
  
 const translatorState = {
   enabled: false,
@@ -79,8 +782,8 @@ const translatorState = {
   originalTexts: new Map(),
   translatedElements: new Map(),
   maxCacheSize: 500,
-  maxTranslatedElements: 50,
-  maxOriginalTexts: 100,
+  maxTranslatedElements: 150,
+  maxOriginalTexts: 150,
   cacheTTL: 3600000,
   cacheLoaded: false,
   bootstrapped: false,
@@ -91,14 +794,19 @@ const translatorState = {
   mutationDebounceTimer: null,
   pendingMutations: [],
   cleanupInterval: null,
-  reinitInterval: null
+  reinitInterval: null,
+  tooltipHideTimer: null,
+  tooltipOver: false,
+  tooltipAnchor: null
 };
 
-const TRANSLATION_QUEUE_BATCH = 20;
-const TRANSLATION_QUEUE_DELAY_MS = 80;
+const TRANSLATION_QUEUE_BATCH = 40;
+const TRANSLATION_QUEUE_DELAY_MS = 40;
 const MUTATION_DEBOUNCE_MS = 350;
-const API_BATCH_SIZE = 10;
-const API_BATCH_MAX_CHARS = 3000;
+const API_BATCH_SIZE = 20;
+const API_BATCH_MAX_CHARS = 6000;
+const MAX_TRANSLATION_QUEUE_SIZE = 120;
+const KEEP_RECENT_TRANSLATION_QUEUE_SIZE = 80;
 const BATCH_TEXT_SEPARATOR = '\uE000';
 const CACHE_STORAGE_KEY = 'chatTranslationCache';
 const CHAT_CONTAINER_RETRY_MS = 800;
@@ -111,6 +819,8 @@ const CHAT_NAV_OBSERVER_MAX_MS = 20000;
 const CHAT_CONTAINER_SELECTORS = [
   '[data-test-selector="chat-scrollable-area__message-container"]',
   '.chat-scrollable-area__message-container',
+  '.video-chat__message-list-wrapper ul',
+  '.video-chat__message-list-wrapper',
   '[data-a-target="chat-messages"]',
   'section[data-test-selector="chat-room-component"] [role="log"]'
 ];
@@ -968,6 +1678,22 @@ const messageProcessor = {
     }
   },
 
+  restoreTranslationIfCached(element) {
+    if (!element?.isConnected || element.classList.contains('translated-message')) {
+      return false;
+    }
+
+    const cached = translatorState.translatedElements.get(element);
+    const originalText = cached?.originalText || element.dataset.tsnOriginal;
+    const translation = cached?.translation || element.dataset.tsnTranslation;
+    const targetLang = element.dataset.tsnTargetLang || translatorState.targetLang;
+
+    if (!originalText || !translation) return false;
+
+    this.createTranslatedMessage(element, originalText, translation, targetLang);
+    return true;
+  },
+
   async processMessages(elements, targetLang, provider = 'microsoft') {
     const items = [];
 
@@ -1065,7 +1791,13 @@ const messageProcessor = {
     
     if (translatorState.translatedElements.size >= translatorState.maxTranslatedElements) {
       const oldestElement = translatorState.translatedElements.keys().next().value;
-      this.removeTranslatedElement(oldestElement);
+      if (oldestElement) {
+        if (oldestElement.isConnected) {
+          this.evictTranslationMaps(oldestElement);
+        } else {
+          this.removeTranslatedElement(oldestElement);
+        }
+      }
     }
     
     try {      
@@ -1074,7 +1806,10 @@ const messageProcessor = {
       element.style.display = 'inline';
       
       const prefix = getTranslationPrefix(targetLang);
-        element.textContent = `${prefix} ${translation}`;
+      element.textContent = `${prefix} ${translation}`;
+      element.dataset.tsnOriginal = originalText;
+      element.dataset.tsnTranslation = translation;
+      element.dataset.tsnTargetLang = targetLang;
       
       const oldHandler = element._translationHandler;
       if (oldHandler) {
@@ -1083,16 +1818,19 @@ const messageProcessor = {
       }
       
       const mouseenterHandler = (e) => {
-        this.showTooltip(e, originalText);
+        this.cancelTooltipHide();
+        const stored = translatorState.translatedElements.get(element);
+        const original = stored?.originalText || element.dataset.tsnOriginal || originalText;
+        this.showTooltip(e, original, element);
       };
       
-      const mouseleaveHandler = () => {
-        setTimeout(() => {
-          const tooltip = document.getElementById('translation-tooltip');
-          if (tooltip) {
-            this.hideTooltip();
-          }
-        }, 100);
+      const mouseleaveHandler = (e) => {
+        const related = e.relatedTarget;
+        const tooltip = document.getElementById('translation-tooltip');
+        if (related && tooltip && (related === tooltip || tooltip.contains(related))) {
+          return;
+        }
+        this.scheduleTooltipHide();
       };
       
       element.addEventListener('mouseenter', mouseenterHandler);
@@ -1116,47 +1854,66 @@ const messageProcessor = {
     }
   },
 
-  showTooltip(event, text) {
-    this.hideTooltip();
+  cancelTooltipHide() {
+    if (translatorState.tooltipHideTimer) {
+      clearTimeout(translatorState.tooltipHideTimer);
+      translatorState.tooltipHideTimer = null;
+    }
+  },
+
+  scheduleTooltipHide() {
+    this.cancelTooltipHide();
+    translatorState.tooltipHideTimer = setTimeout(() => {
+      translatorState.tooltipHideTimer = null;
+      if (translatorState.tooltipOver) return;
+      const anchor = translatorState.tooltipAnchor;
+      if (anchor?.isConnected && anchor.matches(':hover')) return;
+      this.hideTooltip();
+    }, 400);
+  },
+
+  showTooltip(event, text, anchorElement) {
+    this.cancelTooltipHide();
+    this.hideTooltip(false);
     
     const fullOriginalText = text || '';
+    const anchor = anchorElement || event?.currentTarget || event?.target;
+    if (!anchor) return;
     
     const tooltip = document.createElement('div');
     tooltip.id = 'translation-tooltip';
     tooltip.className = 'original-text-tooltip';
     tooltip.textContent = fullOriginalText;
     
-    const rect = event.target.getBoundingClientRect();
+    const rect = anchor.getBoundingClientRect();
     tooltip.style.left = (rect.left + rect.width / 2) + 'px';
-    tooltip.style.top = (rect.top - 10) + 'px';
-    tooltip.style.transform = 'translateX(-50%) translateY(-100%)';
+    tooltip.style.top = (rect.bottom + 6) + 'px';
+    tooltip.style.transform = 'translateX(-50%)';
     
     document.body.appendChild(tooltip);
-    
-    tooltip.style.opacity = '1';
-    tooltip.style.visibility = 'visible';
+    translatorState.tooltipAnchor = anchor;
+    translatorState.tooltipOver = false;
     
     tooltip.addEventListener('mouseenter', () => {
-      const el = document.getElementById('translation-tooltip');
-      if (el) {
-        el.style.opacity = '1';
-        el.style.visibility = 'visible';
-      }
+      translatorState.tooltipOver = true;
+      this.cancelTooltipHide();
     });
     tooltip.addEventListener('mouseleave', () => {
-      this.hideTooltip();
+      translatorState.tooltipOver = false;
+      this.scheduleTooltipHide();
     });
   },
 
-  hideTooltip() {
+  hideTooltip(resetAnchor = true) {
+    this.cancelTooltipHide();
+    if (resetAnchor) {
+      translatorState.tooltipOver = false;
+      translatorState.tooltipAnchor = null;
+    }
+
     const tooltip = document.getElementById('translation-tooltip');
-    if (tooltip) {
-      tooltip.style.opacity = '0';
-      tooltip.style.visibility = 'hidden';
-      
-      if (tooltip.parentNode) {
-        tooltip.parentNode.removeChild(tooltip);
-      }
+    if (tooltip?.parentNode) {
+      tooltip.parentNode.removeChild(tooltip);
     }
   },
 
@@ -1170,6 +1927,12 @@ const messageProcessor = {
         tooltip.parentNode.removeChild(tooltip);
       }
     });
+  },
+
+  evictTranslationMaps(element) {
+    if (!element) return;
+    translatorState.originalTexts.delete(element);
+    translatorState.translatedElements.delete(element);
   },
 
   removeTranslatedElement(element) {
@@ -1189,16 +1952,27 @@ const messageProcessor = {
     element.className = 'text-fragment';
     element.style.position = '';
     element.style.display = '';
+    delete element.dataset.tsnOriginal;
+    delete element.dataset.tsnTranslation;
+    delete element.dataset.tsnTargetLang;
   },
 
   removeTooltip(element) {
     element.classList.remove('translated-message');
+
+    const tooltip = document.getElementById('translation-tooltip');
+    const shouldPreserve =
+      tooltip &&
+      translatorState.tooltipAnchor &&
+      translatorState.tooltipAnchor !== element;
+
+    if (!shouldPreserve) {
+      this.hideTooltip();
+    }
     
-    this.hideTooltip();
-    
-    const tooltip = element.querySelector('.original-text-tooltip');
-    if (tooltip) {
-      tooltip.remove();
+    const tooltipInElement = element.querySelector('.original-text-tooltip');
+    if (tooltipInElement) {
+      tooltipInElement.remove();
     }
     
     const handler = element._translationHandler;
@@ -1215,6 +1989,9 @@ const messageProcessor = {
     element.className = 'text-fragment';
     element.style.position = '';
     element.style.display = '';
+    delete element.dataset.tsnOriginal;
+    delete element.dataset.tsnTranslation;
+    delete element.dataset.tsnTargetLang;
   },
 
   cleanup() {
@@ -1232,23 +2009,41 @@ const messageProcessor = {
  
 const messageQueue = {
   enqueue(element) {
-    if (
-      !element ||
-      translatorState.queuedElements.has(element) ||
-      translatorState.originalTexts.has(element) ||
-      element.classList.contains('translated-message')
-    ) {
-      return;
+    if (!element || translatorState.queuedElements.has(element)) return;
+    if (element.classList?.contains?.('translated-message')) return;
+
+    const liveText = element.textContent;
+    if (!liveText || hasTranslationPrefix(liveText)) return;
+
+    const existingText = translatorState.originalTexts.get(element);
+    if (existingText != null) {
+      if (existingText === liveText) {
+        if (element.classList.contains('translated-message')) return;
+      } else if (translatorState.translatedElements.has(element)) {
+        messageProcessor.removeTranslatedElement(element);
+      }
     }
 
-    const originalText = element.textContent;
-    if (!originalText || hasTranslationPrefix(originalText)) {
-      return;
-    }
-
-    translatorState.originalTexts.set(element, originalText);
+    translatorState.originalTexts.set(element, liveText);
     translatorState.queuedElements.add(element);
     translatorState.messageQueue.push(element);
+
+    if (translatorState.messageQueue.length > MAX_TRANSLATION_QUEUE_SIZE) {
+      const retained = [];
+      const dropped = [];
+      for (const el of translatorState.messageQueue) {
+        if (el?.isConnected) {
+          retained.push(el);
+        } else {
+          dropped.push(el);
+        }
+      }
+      translatorState.messageQueue = retained;
+      dropped.forEach((el) => {
+        translatorState.queuedElements.delete(el);
+      });
+    }
+
     this.scheduleDrain();
   },
 
@@ -1571,6 +2366,14 @@ function createBilingualTranslator(options) {
     },
 
     renderBilingual(el, original, translation) {
+      if (!messageProcessor.shouldShowTranslation(original, translation, translatorState.targetLang)) {
+        const html = el.dataset.tsnOriginalHtml || null;
+        this.applyOriginalContent(el, original, html);
+        delete el.dataset.tsnTranslated;
+        delete el.dataset.tsnTranslation;
+        return;
+      }
+
       if (this._elementObserver) {
         this._elementObserver.disconnect();
         this._elementObserver = null;
@@ -1696,7 +2499,14 @@ function createBilingualTranslator(options) {
         const stored = (el.dataset.tsnOriginal || getLivePlainWithoutTranslation(el)).trim();
         const cached = (el.dataset.tsnTranslation || '').trim();
         if (stored && cached) {
-          this.renderBilingual(el, stored, cached);
+          if (messageProcessor.shouldShowTranslation(stored, cached, translatorState.targetLang)) {
+            this.renderBilingual(el, stored, cached);
+          } else {
+            const html = el.dataset.tsnOriginalHtml || null;
+            this.applyOriginalContent(el, stored, html);
+            delete el.dataset.tsnTranslated;
+            delete el.dataset.tsnTranslation;
+          }
           this._attachedElement = el;
           this._attachedChannel = routeDetector.getChannelFromPath();
           return true;
@@ -1715,6 +2525,13 @@ function createBilingualTranslator(options) {
         this.resetElement(this._attachedElement, { restoreOriginal: false });
       } else if (this._attachedElement === el && channel === this._attachedChannel) {
         if (livePlain === stored && this.isTranslationRendered(el)) {
+          const cached = (el.dataset.tsnTranslation || '').trim();
+          if (cached && !messageProcessor.shouldShowTranslation(stored, cached, translatorState.targetLang)) {
+            const html = el.dataset.tsnOriginalHtml || null;
+            this.applyOriginalContent(el, stored, html);
+            delete el.dataset.tsnTranslated;
+            delete el.dataset.tsnTranslation;
+          }
           this.clearContentWait();
           this.stopBodyObserver();
           return true;
@@ -1729,7 +2546,6 @@ function createBilingualTranslator(options) {
           return false;
         }
         if (livePlain === stored && contentReady) {
-          // 標題未變：不要重設 innerHTML，避免與 Twitch React 衝突造成譯文一閃即逝
           if (!this.isTranslationRendered(el)) {
             delete el.dataset.tsnTranslated;
             delete el.dataset.tsnTranslation;
@@ -2140,34 +2956,65 @@ const chatMonitor = {
 
     translatorState.watcher.observe(chatContainer, {
       childList: true,
-      subtree: true
+      subtree: true,
+      characterData: true
     });
   },
 
   handleMutations(mutations) {
+      if (sharedChatSourceState.isMutating) return;
+
       mutations.forEach((mutation) => {
+        if (mutation.type === 'characterData') {
+          const host = mutation.target?.parentElement?.closest?.('span.text-fragment');
+          if (host && !messageProcessor.restoreTranslationIfCached(host)) {
+            this.processNewMessage(host);
+          }
+          return;
+        }
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
+            if (node.classList?.contains('tsn-source-badge')) return;
             this.processNewMessage(node);
+            return;
+          }
+          if (node.nodeType === Node.TEXT_NODE) {
+            const host = node.parentElement?.closest?.('span.text-fragment');
+            if (host && !messageProcessor.restoreTranslationIfCached(host)) {
+              this.processNewMessage(host);
+            }
           }
         });
 
         mutation.removedNodes.forEach((node) => {
           if (node.nodeType !== Node.ELEMENT_NODE) return;
+          if (node.classList?.contains('tsn-source-badge')) return;
 
-          const handleElement = (el) => {
-            if (!el) return;
-            if (el.matches && (el.matches('span.text-fragment') || el.matches('.translated-message'))) {
-              messageProcessor.removeTranslatedElement(el);
+          const fragments = [];
+          const collectFragments = (root) => {
+            if (!root || root.nodeType !== Node.ELEMENT_NODE) return;
+            if (root.matches?.('span.text-fragment, .translated-message')) {
+              fragments.push(root);
             }
+            root.querySelectorAll?.('span.text-fragment, .translated-message')?.forEach((el) => {
+              fragments.push(el);
+            });
           };
+          collectFragments(node);
 
-          handleElement(node);
-
-          if (node.querySelectorAll) {
-            const spans = node.querySelectorAll('span.text-fragment, .translated-message');
-            spans.forEach((el) => handleElement(el));
-          }
+          fragments.forEach((el) => {
+            requestAnimationFrame(() => {
+              if (!el.isConnected) {
+                messageProcessor.removeTranslatedElement(el);
+                return;
+              }
+              if (messageProcessor.restoreTranslationIfCached(el)) return;
+              if (el.classList.contains('translated-message')) return;
+              if (!hasTranslationPrefix(el.textContent || '')) {
+                messageQueue.enqueue(el);
+              }
+            });
+          });
         });
       });
   },
@@ -2206,7 +3053,11 @@ const chatMonitor = {
         while (translatorState.originalTexts.size > translatorState.maxOriginalTexts) {
           const oldest = translatorState.originalTexts.keys().next().value;
           if (!oldest) break;
-          messageProcessor.removeTranslatedElement(oldest);
+          if (oldest.isConnected) {
+            messageProcessor.evictTranslationMaps(oldest);
+          } else {
+            messageProcessor.removeTranslatedElement(oldest);
+          }
         }
       }, 30000);
     }
@@ -2222,6 +3073,7 @@ const chatMonitor = {
           } else if (chatMonitor._attachedContainer !== container || !translatorState.watcher) {
             chatMonitor.attachToContainer(container);
           }
+          chatMonitor.reconcileVisibleTranslations();
 
           const channel = routeDetector.getChannelFromPath();
           const titleEl = pageTextTranslators.findTitleElement();
@@ -2280,22 +3132,63 @@ const chatMonitor = {
   },
 
   processExistingMessages() {
-    const messages = document.querySelectorAll('span.text-fragment');
+    const container = this.findChatContainer();
+    if (!container) return;
+    const messages = container.querySelectorAll('span.text-fragment');
     const backlogStart = Math.max(0, messages.length - CHAT_BACKLOG_TRANSLATE_MAX);
     for (let i = backlogStart; i < messages.length; i++) {
       messageQueue.enqueue(messages[i]);
     }
+    this.reconcileVisibleTranslations();
+  },
+
+  reconcileVisibleTranslations() {
+    const container = this.findChatContainer();
+    if (!container) return;
+
+    container.querySelectorAll('span.text-fragment[data-tsn-translation]').forEach((el) => {
+      if (!el.classList.contains('translated-message')) {
+        messageProcessor.restoreTranslationIfCached(el);
+        return;
+      }
+      if (!el._translationHandler) {
+        const original = el.dataset.tsnOriginal;
+        const translation = el.dataset.tsnTranslation;
+        const targetLang = el.dataset.tsnTargetLang || translatorState.targetLang;
+        if (original && translation) {
+          messageProcessor.createTranslatedMessage(el, original, translation, targetLang);
+        }
+      }
+    });
+
+    translatorState.translatedElements.forEach((data, el) => {
+      if (!el?.isConnected) return;
+      if (!el.classList.contains('translated-message') && data?.originalText && data?.translation) {
+        messageProcessor.createTranslatedMessage(
+          el,
+          data.originalText,
+          data.translation,
+          el.dataset.tsnTargetLang || translatorState.targetLang
+        );
+      }
+    });
   },
 
   processNewMessage(node) {
     if (node.matches?.('span.text-fragment')) {
-      messageQueue.enqueue(node);
+      if (!messageProcessor.restoreTranslationIfCached(node)) {
+        messageQueue.enqueue(node);
+      }
       return;
     }
 
     const fragments = node.querySelectorAll?.('span.text-fragment');
     if (!fragments?.length) return;
-    fragments.forEach((msg) => messageQueue.enqueue(msg));
+    fragments.forEach((msg) => {
+      if (!messageProcessor.restoreTranslationIfCached(msg)) {
+        messageQueue.enqueue(msg);
+      }
+    });
   }
 };
 
@@ -2663,9 +3556,13 @@ function onPageFullyLoaded() {
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => appBootstrap.init());
+  document.addEventListener('DOMContentLoaded', () => {
+    appBootstrap.init();
+    sharedChatSource.init();
+  });
 } else {
   appBootstrap.init();
+  sharedChatSource.init();
 }
 
 if (document.readyState === 'complete') {
@@ -2678,6 +3575,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'updateTranslationSettings') {
     const settings = message.settings || {};
     appBootstrap.applySettings(settings);
+    sendResponse({ ok: true });
+    return;
+  }
+
+  if (message.type === 'updateSharedChatSourceSettings') {
+    const settings = message.settings || {};
+    sharedChatSource.applySettings(settings);
     sendResponse({ ok: true });
   }
 });

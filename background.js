@@ -410,14 +410,35 @@ class StreamStateManager {
 
   async getFollowedChannels(accessToken) {
     try {
+      if (!accessToken) {
+        throw new Error('Missing Twitch access token');
+      }
+
+      const fetchWithRetry = async (url, init, label) => {
+        let lastError = null;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            return await fetch(url, init);
+          } catch (err) {
+            lastError = err;
+            const isNetworkError = err instanceof TypeError;
+            if (!isNetworkError || attempt === 3) break;
+            const waitMs = 250 * attempt;
+            console.warn(`[Twitch API] ${label} network error (attempt ${attempt}/3), retrying in ${waitMs}ms`, err);
+            await new Promise((resolve) => setTimeout(resolve, waitMs));
+          }
+        }
+        throw new Error(`${label} network request failed: ${String(lastError?.message || lastError)}`);
+      };
+
       console.log('Getting followed channels with token:', accessToken ? 'present' : 'missing');
       
-      const userResponse = await fetch(`${TWITCH_API_BASE}/users`, {
+      const userResponse = await fetchWithRetry(`${TWITCH_API_BASE}/users`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Client-Id': TWITCH_CLIENT_ID
         }
-      });
+      }, 'get user info');
       
       console.log('User info response status:', userResponse.status);
       
@@ -449,12 +470,12 @@ class StreamStateManager {
         const followUrl = `${TWITCH_API_BASE}/channels/followed?user_id=${userId}&first=100${cursor ? `&after=${cursor}` : ''}`;
         console.log(`Fetching followed channels page ${page} from:`, followUrl);
         
-        const followResponse = await fetch(followUrl, {
+        const followResponse = await fetchWithRetry(followUrl, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Client-Id': TWITCH_CLIENT_ID
           }
-        });
+        }, `get followed channels page ${page}`);
         
         console.log(`Followed channels page ${page} response status:`, followResponse.status);
         
@@ -1778,6 +1799,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       const settings = obj[STORAGE.settings] || {};
       if (settings.autoBonusEnabled === undefined) settings.autoBonusEnabled = true;
       if (settings.chattersCountEnabled === undefined) settings.chattersCountEnabled = false;
+      if (settings.sharedChatSourceEnabled === undefined) settings.sharedChatSourceEnabled = false;
       sendResponse({ settings });
       return;
     }
@@ -1794,6 +1816,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         }
         if (next.chattersCountEnabled === undefined) {
           next.chattersCountEnabled = false;
+        }
+        if (next.sharedChatSourceEnabled === undefined) {
+          next.sharedChatSourceEnabled = false;
         }
         
         

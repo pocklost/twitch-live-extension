@@ -179,6 +179,10 @@
     "message": "Twitch 채팅 인원 수",
     "description": "Twitch Chatters Count feature label"
   },
+  "featureSharedChatSource": {
+    "message": "공유 채팅 출처 식별",
+    "description": "Shared chat source identifier feature label"
+  },
   "settingsRefreshHint": {
     "message": "설정을 변경한 후 적용을 위해 Twitch 페이지를 새로고침하세요.",
     "description": "Notice shown under settings"

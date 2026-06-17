@@ -179,6 +179,10 @@
     "message": "Twitch 聊天人数统计",
     "description": "Twitch Chatters Count feature label"
   },
+  "featureSharedChatSource": {
+    "message": "共享聊天室来源识别",
+    "description": "Shared chat source identifier feature label"
+  },
   "settingsRefreshHint": {
     "message": "更改设置后，请刷新 Twitch 页面以生效。",
     "description": "Notice shown under settings"

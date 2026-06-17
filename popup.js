@@ -1,5 +1,6 @@
 let viewerCountSettings = { useKDisplay: false };
 let chatTranslationSettings = { enabled: false, provider: 'microsoft', language: 'zh-tw', customPrefix: '' };
+let sharedChatSourceEnabledState = false;
 
 function formatViewerCount(count) {
   const useKDisplayEl = document.getElementById('useKDisplay');
@@ -332,6 +333,7 @@ function loadSettings() {
     const useKDisplayEl = document.getElementById('useKDisplay');
     const autoBonusEnabledEl = document.getElementById('autoBonusEnabled');
     const chattersCountEnabledEl = document.getElementById('chattersCountEnabled');
+    const sharedChatSourceEnabledEl = document.getElementById('sharedChatSourceEnabled');
     
     if (muteNotificationsEl) muteNotificationsEl.checked = !!s.muteNotifications;
     if (hidePreviewsEl) hidePreviewsEl.checked = !!s.hidePreviews;
@@ -361,6 +363,11 @@ function loadSettings() {
       chattersCountEnabledEl.checked = chattersDefault;
       chattersCountEnabledEl.addEventListener('change', saveSettings);
     }
+    if (sharedChatSourceEnabledEl) {
+      sharedChatSourceEnabledEl.checked = s.sharedChatSourceEnabled === true;
+      sharedChatSourceEnabledEl.addEventListener('change', saveSharedChatSourceSetting);
+    }
+    sharedChatSourceEnabledState = s.sharedChatSourceEnabled === true;
     
     viewerCountSettings.useKDisplay = s.useKDisplay === true;
     
@@ -567,19 +574,25 @@ function saveSettings() {
   const useKDisplayEl = document.getElementById('useKDisplay');
   const autoBonusEnabledEl = document.getElementById('autoBonusEnabled');
   const chattersCountEnabledEl = document.getElementById('chattersCountEnabled');
+  const sharedChatSourceEnabledEl = document.getElementById('sharedChatSourceEnabled');
   
   const settings = {
     muteNotifications: muteNotificationsEl ? muteNotificationsEl.checked : false,
     hidePreviews: hidePreviewsEl ? hidePreviewsEl.checked : false,
     pollMinutes: pollMinutesEl ? Number(pollMinutesEl.value || 1) : 1,
     autoFollow: autoFollowEl ? autoFollowEl.checked : false,
-    translationEnabled: translationEnabledEl ? translationEnabledEl.checked : false,
-    translationProvider: translationProviderEl ? translationProviderEl.value : 'microsoft',
-    targetLanguage: targetLanguageEl ? targetLanguageEl.value : 'en',
-    customPrefix: customPrefixEl ? customPrefixEl.value : '',
+    // Some UI sections may not be present in the current tab/accordion state.
+    // In that case, preserve the last-known translation settings instead of overwriting.
+    translationEnabled: translationEnabledEl ? translationEnabledEl.checked : chatTranslationSettings.enabled === true,
+    translationProvider: translationProviderEl ? translationProviderEl.value : (chatTranslationSettings.provider || 'microsoft'),
+    targetLanguage: targetLanguageEl ? targetLanguageEl.value : (chatTranslationSettings.language || 'en'),
+    customPrefix: customPrefixEl ? customPrefixEl.value : (chatTranslationSettings.customPrefix || ''),
     useKDisplay: useKDisplayEl ? useKDisplayEl.checked : false,
     autoBonusEnabled: autoBonusEnabledEl ? autoBonusEnabledEl.checked : true,
-    chattersCountEnabled: chattersCountEnabledEl ? chattersCountEnabledEl.checked : false
+    chattersCountEnabled: chattersCountEnabledEl ? chattersCountEnabledEl.checked : false,
+    sharedChatSourceEnabled: sharedChatSourceEnabledEl
+      ? sharedChatSourceEnabledEl.checked
+      : sharedChatSourceEnabledState === true
   };
   
   viewerCountSettings.useKDisplay = settings.useKDisplay;
@@ -598,6 +611,7 @@ function saveSettings() {
       return;
     }
     if (response?.ok) {
+      sharedChatSourceEnabledState = settings.sharedChatSourceEnabled === true;
       console.log(chrome.i18n.getMessage('settingsAutoSaved'));
       
       
@@ -622,6 +636,12 @@ function saveSettings() {
       chrome.runtime.sendMessage({
         type: 'updateTranslationSettings',
         settings: chatTranslationSettings
+      });
+      chrome.runtime.sendMessage({
+        type: 'updateSharedChatSourceSettings',
+        settings: {
+          enabled: settings.sharedChatSourceEnabled === true
+        }
       });
       
       if (settings.autoFollow) {
@@ -654,6 +674,39 @@ function saveSettings() {
         });
       }
     }
+  });
+}
+
+function saveSharedChatSourceSetting() {
+  const sharedChatSourceEnabledEl = document.getElementById('sharedChatSourceEnabled');
+  const enabled = sharedChatSourceEnabledEl ? sharedChatSourceEnabledEl.checked === true : false;
+  sharedChatSourceEnabledState = enabled;
+
+  chrome.runtime.sendMessage({ type: 'settings:get' }, (res) => {
+    if (chrome.runtime.lastError) {
+      console.log('Error loading settings for shared chat source:', chrome.runtime.lastError.message);
+      return;
+    }
+
+    const nextSettings = {
+      ...(res?.settings || {}),
+      sharedChatSourceEnabled: enabled
+    };
+
+    chrome.runtime.sendMessage({ type: 'settings:save', settings: nextSettings }, (saveRes) => {
+      if (chrome.runtime.lastError) {
+        console.log('Error saving shared chat source setting:', chrome.runtime.lastError.message);
+        return;
+      }
+      if (!saveRes?.ok) {
+        console.log('Failed to save shared chat source setting:', saveRes?.error);
+      }
+    });
+  });
+
+  chrome.runtime.sendMessage({
+    type: 'updateSharedChatSourceSettings',
+    settings: { enabled }
   });
 }
 

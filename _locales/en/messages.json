@@ -179,6 +179,10 @@
     "message": "Twitch Chatters Count",
     "description": "Twitch Chatters Count feature label"
   },
+  "featureSharedChatSource": {
+    "message": "Shared chat source identifier",
+    "description": "Shared chat source identifier feature label"
+  },
   "settingsRefreshHint": {
     "message": "After changing settings, refresh the Twitch page for changes to take effect.",
     "description": "Notice shown under settings"
