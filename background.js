@@ -36,6 +36,51 @@ const STORAGE = {
   authBlockReason: 'tsn_auth_block_reason'
 };
 
+async function fetchWithRetry(url, init = {}, label = 'request', options = {}) {
+  const maxAttempts = options.maxAttempts || 5;
+  const baseDelayMs = options.baseDelayMs || 500;
+  const timeoutMs = options.timeoutMs || 15000;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { ...init, signal: controller.signal });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      lastError = err;
+      const retriable = err instanceof TypeError || err?.name === 'AbortError';
+      if (!retriable || attempt === maxAttempts) break;
+      const waitMs = baseDelayMs * Math.pow(2, attempt - 1);
+      console.warn(`[Twitch API] ${label} failed (attempt ${attempt}/${maxAttempts}), retry in ${waitMs}ms:`, err?.message || err);
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+  }
+
+  const error = new Error(`${label} network request failed: ${String(lastError?.message || lastError)}`);
+  error.cause = lastError;
+  error.retriable = true;
+  throw error;
+}
+
+function normalizeFollowedChannelEntry(entry) {
+  if (!entry) return null;
+  if (typeof entry === 'string') {
+    const username = entry.toLowerCase();
+    return username ? { username, followedAt: null, displayName: entry } : null;
+  }
+  const username = String(entry.username || entry.login || '').toLowerCase();
+  if (!username) return null;
+  return {
+    username,
+    followedAt: entry.followedAt || entry.followed_at || null,
+    displayName: entry.displayName || entry.display_name || username
+  };
+}
+
 class StreamStateManager {
   async read(keys) {
     return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
@@ -408,28 +453,12 @@ class StreamStateManager {
     return result;
   }
 
-  async getFollowedChannels(accessToken) {
+  async getFollowedChannels(accessToken, options = {}) {
+    const { fallbackOnNetworkError = true } = options;
     try {
       if (!accessToken) {
         throw new Error('Missing Twitch access token');
       }
-
-      const fetchWithRetry = async (url, init, label) => {
-        let lastError = null;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            return await fetch(url, init);
-          } catch (err) {
-            lastError = err;
-            const isNetworkError = err instanceof TypeError;
-            if (!isNetworkError || attempt === 3) break;
-            const waitMs = 250 * attempt;
-            console.warn(`[Twitch API] ${label} network error (attempt ${attempt}/3), retrying in ${waitMs}ms`, err);
-            await new Promise((resolve) => setTimeout(resolve, waitMs));
-          }
-        }
-        throw new Error(`${label} network request failed: ${String(lastError?.message || lastError)}`);
-      };
 
       console.log('Getting followed channels with token:', accessToken ? 'present' : 'missing');
       
@@ -531,8 +560,16 @@ class StreamStateManager {
       return result;
       
     } catch (error) {
-      console.error('Error getting followed channels:', error);
-      console.error('Error stack:', error.stack);
+      const isNetworkError = error?.retriable || /network request failed/i.test(String(error?.message || ''));
+      if (fallbackOnNetworkError && isNetworkError) {
+        const cached = await this.getChannelsWithData();
+        const normalized = cached.map(normalizeFollowedChannelEntry).filter(Boolean);
+        if (normalized.length > 0) {
+          console.warn(`[Twitch API] getFollowedChannels failed (${error.message}), using ${normalized.length} cached channels`);
+          return normalized;
+        }
+      }
+      console.error('Error getting followed channels:', error.message || error);
       throw error;
     }
   }
@@ -2172,7 +2209,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         }
         console.log('Access token obtained for test, fetching followed channels...');
         
-        const followedChannels = await tracker.getFollowedChannels(accessToken);
+        const followedChannels = await tracker.getFollowedChannels(accessToken, { fallbackOnNetworkError: false });
         console.log('Test - Followed channels:', followedChannels);
         
         const followedUsernames = followedChannels.map(channel => channel.username);
