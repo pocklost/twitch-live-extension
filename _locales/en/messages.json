@@ -964,5 +964,53 @@
   "supportDeveloperButton": {
     "message": "Support Developer",
     "description": "Support developer button text"
+  },
+  "backgroundAudioPlay": {
+    "message": "Background play",
+    "description": "Background audio play button tooltip"
+  },
+  "backgroundAudioLoading": {
+    "message": "Connecting...",
+    "description": "Background audio connecting status"
+  },
+  "backgroundAudioStop": {
+    "message": "Stop background play",
+    "description": "Background audio stop button tooltip"
+  },
+  "backgroundAudioPlaying": {
+    "message": "Playing in background: $1",
+    "description": "Background audio bar label",
+    "placeholders": {
+      "channel": {
+        "content": "$1",
+        "example": "StreamerName"
+      }
+    }
+  },
+  "backgroundAudioStarted": {
+    "message": "Background play started for $1",
+    "description": "Background audio started status",
+    "placeholders": {
+      "channel": {
+        "content": "$1",
+        "example": "StreamerName"
+      }
+    }
+  },
+  "backgroundAudioStopped": {
+    "message": "Background play stopped",
+    "description": "Background audio stopped status"
+  },
+  "backgroundAudioNeedAuth": {
+    "message": "Authorization expired. Re-authorize in Settings and try again.",
+    "description": "Background audio auth token invalid or expired"
+  },
+  "backgroundAudioFailed": {
+    "message": "Background play failed",
+    "description": "Background audio generic error"
+  },
+  "backgroundAudioSource": {
+    "message": "From this extension",
+    "description": "Media session source label for background audio"
   }
 }

@@ -964,5 +964,53 @@
   "supportDeveloperButton": {
     "message": "개발자 지원",
     "description": "개발자 지원 버튼 텍스트"
+  },
+  "backgroundAudioPlay": {
+    "message": "백그라운드 재생",
+    "description": "Background audio play button tooltip"
+  },
+  "backgroundAudioLoading": {
+    "message": "연결 중...",
+    "description": "Background audio connecting status"
+  },
+  "backgroundAudioStop": {
+    "message": "백그라운드 재생 중지",
+    "description": "Background audio stop button tooltip"
+  },
+  "backgroundAudioPlaying": {
+    "message": "백그라운드 재생 중: $1",
+    "description": "Background audio bar label",
+    "placeholders": {
+      "channel": {
+        "content": "$1",
+        "example": "StreamerName"
+      }
+    }
+  },
+  "backgroundAudioStarted": {
+    "message": "$1 백그라운드 재생을 시작했습니다",
+    "description": "Background audio started status",
+    "placeholders": {
+      "channel": {
+        "content": "$1",
+        "example": "StreamerName"
+      }
+    }
+  },
+  "backgroundAudioStopped": {
+    "message": "백그라운드 재생이 중지되었습니다",
+    "description": "Background audio stopped status"
+  },
+  "backgroundAudioNeedAuth": {
+    "message": "인증이 만료되었습니다. 설정에서 다시 인증한 후 시도하세요.",
+    "description": "Background audio auth token invalid or expired"
+  },
+  "backgroundAudioFailed": {
+    "message": "백그라운드 재생에 실패했습니다",
+    "description": "Background audio generic error"
+  },
+  "backgroundAudioSource": {
+    "message": "이 확장 프로그램에서",
+    "description": "Media session source label for background audio"
   }
 }

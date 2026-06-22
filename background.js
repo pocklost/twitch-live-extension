@@ -33,7 +33,9 @@ const STORAGE = {
   countdownStartTime: 'tsn_countdown_start_time',
   pollInterval: 'tsn_poll_interval',
   authAutoBlockedUntil: 'tsn_auth_auto_blocked_until',
-  authBlockReason: 'tsn_auth_block_reason'
+  authBlockReason: 'tsn_auth_block_reason',
+  audioPlayback: 'tsn_audio_playback',
+  audioVolume: 'tsn_audio_volume'
 };
 
 async function fetchWithRetry(url, init = {}, label = 'request', options = {}) {
@@ -1288,6 +1290,12 @@ async function performPollAndBroadcast() {
   } catch (error) {
     console.log('Error sending message:', error.message);
   }
+
+  try {
+    await checkBackgroundAudioOffline(twitchLiveMap);
+  } catch (e) {
+    console.error('Background audio offline check failed:', e?.message || e);
+  }
 }
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -1517,7 +1525,415 @@ async function buildSettingsExportPayload() {
   };
 }
 
+const OFFSCREEN_AUDIO_PATH = 'offscreen.html';
+const OFFSCREEN_TARGET = 'offscreen-audio';
+const STREAM_PLAYBACK_PQ_HASH = 'ed230aa1e33e07eebb8928504583da78a5173989fadfb1ac94be06a04f3cdbe9';
+const STREAM_PLAYBACK_PQ_HASH_LEGACY = '0828119ded1c13477966434e15800ff57ddacf13ba1911c129dc2200705b0712';
+const STREAM_PLAYBACK_QUERY =
+  'query PlaybackAccessToken_Template($login: String!, $isLive: Boolean!, $vodID: ID!, $isVod: Boolean!, $playerType: String!, $platform: String!) {\n' +
+  '  streamPlaybackAccessToken(channelName: $login, params: {platform: $platform, playerBackend: "mediaplayer", playerType: $playerType}) @include(if: $isLive) {\n' +
+  '    value\n' +
+  '    signature\n' +
+  '    __typename\n' +
+  '  }\n' +
+  '  videoPlaybackAccessToken(id: $vodID, params: {platform: $platform, playerBackend: "mediaplayer", playerType: $playerType}) @include(if: $isVod) {\n' +
+  '    value\n' +
+  '    signature\n' +
+  '    __typename\n' +
+  '  }\n' +
+  '}';
+
+async function ensureOffscreenAudioDocument() {
+  if (!chrome.offscreen) {
+    throw new Error('offscreen_not_supported');
+  }
+  const offscreenUrl = chrome.runtime.getURL(OFFSCREEN_AUDIO_PATH);
+  try {
+    if (chrome.runtime.getContexts) {
+      const existingContexts = await chrome.runtime.getContexts({
+        contextTypes: ['OFFSCREEN_DOCUMENT'],
+        documentUrls: [offscreenUrl]
+      });
+      if (existingContexts.length > 0) return;
+    }
+  } catch (_) {}
+  try {
+    await chrome.offscreen.createDocument({
+      url: OFFSCREEN_AUDIO_PATH,
+      reasons: ['AUDIO_PLAYBACK'],
+      justification: 'Play Twitch live stream audio in the background using the logged-in account'
+    });
+  } catch (err) {
+    if (!String(err?.message || err).includes('already exists')) {
+      throw err;
+    }
+  }
+}
+
+async function closeOffscreenAudioDocument() {
+  if (!chrome.offscreen) return;
+  try {
+    const offscreenUrl = chrome.runtime.getURL(OFFSCREEN_AUDIO_PATH);
+    const existingContexts = await chrome.runtime.getContexts({
+      contextTypes: ['OFFSCREEN_DOCUMENT'],
+      documentUrls: [offscreenUrl]
+    });
+    if (existingContexts.length > 0) {
+      await chrome.offscreen.closeDocument();
+    }
+  } catch (_) {}
+}
+
+async function sendToOffscreenAudio(message, attempt = 0) {
+  await ensureOffscreenAudioDocument();
+  await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 250 : 500));
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ ...message, target: OFFSCREEN_TARGET }, (response) => {
+      if (chrome.runtime.lastError) {
+        const errMsg = chrome.runtime.lastError.message || 'offscreen_message_failed';
+        if (attempt < 2 && /channel closed|response.*received/i.test(errMsg)) {
+          sendToOffscreenAudio(message, attempt + 1).then(resolve).catch(reject);
+          return;
+        }
+        reject(new Error(errMsg));
+        return;
+      }
+      resolve(response);
+    });
+  });
+}
+
+async function getAudioPlaybackState() {
+  const data = await tracker.read([STORAGE.audioPlayback]);
+  return data[STORAGE.audioPlayback] || null;
+}
+
+async function setAudioPlaybackState(state) {
+  if (!state) {
+    await tracker.write({ [STORAGE.audioPlayback]: null });
+  } else {
+    await tracker.write({ [STORAGE.audioPlayback]: state });
+  }
+  broadcastAudioStatus(state);
+}
+
+function broadcastAudioStatus(state) {
+  try {
+    chrome.runtime.sendMessage({
+      type: 'audio:status',
+      state: state || null
+    }).catch(() => {});
+  } catch (_) {}
+}
+
+function broadcastAudioFailed(error) {
+  try {
+    chrome.runtime.sendMessage({
+      type: 'audio:failed',
+      error: String(error || '')
+    }).catch(() => {});
+  } catch (_) {}
+}
+
+function broadcastAudioLoading(loading) {
+  try {
+    chrome.runtime.sendMessage({
+      type: 'audio:loading',
+      loading: loading || null
+    }).catch(() => {});
+  } catch (_) {}
+}
+
+async function getSavedAudioVolume() {
+  const data = await tracker.read([STORAGE.audioVolume]);
+  const vol = Number(data[STORAGE.audioVolume]);
+  if (Number.isFinite(vol) && vol >= 0 && vol <= 1) return vol;
+  return 1;
+}
+
+async function saveAudioVolume(volume) {
+  const vol = Math.max(0, Math.min(1, Number(volume) || 0));
+  await tracker.write({ [STORAGE.audioVolume]: vol });
+  return vol;
+}
+
+async function getStreamPlaybackAccessToken(login, accessToken) {
+  const channel = String(login || '').toLowerCase();
+  if (!channel) throw new Error('invalid_channel');
+
+  const headers = {
+    'Client-ID': TWITCH_GQL_CLIENT_ID,
+    'Content-Type': 'application/json',
+    'Referer': 'https://www.twitch.tv/',
+    'Origin': 'https://www.twitch.tv'
+  };
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  const variables = {
+    isLive: true,
+    login: channel,
+    isVod: false,
+    vodID: '',
+    playerType: 'embed',
+    platform: 'site'
+  };
+
+  const persistedBody = {
+    operationName: 'PlaybackAccessToken',
+    variables,
+    extensions: {
+      persistedQuery: { version: 1, sha256Hash: STREAM_PLAYBACK_PQ_HASH }
+    }
+  };
+
+  let response = await fetch('https://gql.twitch.tv/gql', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(persistedBody)
+  });
+
+  if (!response.ok) {
+    throw new Error(`playback_token_http_${response.status}`);
+  }
+
+  let json = await response.json();
+  let needsFallback = Array.isArray(json?.errors) &&
+    json.errors.some((e) => String(e?.message || '').includes('PersistedQueryNotFound'));
+
+  if (needsFallback) {
+    response = await fetch('https://gql.twitch.tv/gql', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        operationName: 'PlaybackAccessToken',
+        variables,
+        extensions: {
+          persistedQuery: { version: 1, sha256Hash: STREAM_PLAYBACK_PQ_HASH_LEGACY }
+        }
+      })
+    });
+    if (!response.ok) {
+      throw new Error(`playback_token_http_${response.status}`);
+    }
+    json = await response.json();
+    needsFallback = Array.isArray(json?.errors) &&
+      json.errors.some((e) => String(e?.message || '').includes('PersistedQueryNotFound'));
+  }
+
+  if (needsFallback) {
+    response = await fetch('https://gql.twitch.tv/gql', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        operationName: 'PlaybackAccessToken_Template',
+        variables,
+        query: STREAM_PLAYBACK_QUERY
+      })
+    });
+    if (!response.ok) {
+      throw new Error(`playback_token_http_${response.status}`);
+    }
+    json = await response.json();
+  }
+
+  if (Array.isArray(json?.errors) && json.errors.length > 0) {
+    throw new Error(json.errors[0]?.message || 'playback_token_gql_error');
+  }
+
+  const tokenData = json?.data?.streamPlaybackAccessToken;
+  if (!tokenData?.value || !tokenData?.signature) {
+    throw new Error('playback_token_missing');
+  }
+
+  return {
+    value: tokenData.value,
+    signature: tokenData.signature
+  };
+}
+
+function buildStreamHlsUrl(login, tokenValue, signature, useLegacy = false) {
+  const channel = String(login || '').toLowerCase();
+  const params = new URLSearchParams({
+    platform: 'web',
+    p: String(Math.floor(Math.random() * 999999)),
+    allow_source: 'true',
+    allow_audio_only: 'true',
+    playlist_include_framerate: 'true',
+    supported_codecs: 'h264',
+    sig: signature,
+    token: tokenValue,
+    fast_bread: 'true'
+  });
+  if (useLegacy) {
+    params.set('client_id', TWITCH_GQL_CLIENT_ID);
+    return `https://usher.ttvnw.net/api/channel/hls/${channel}.m3u8?${params.toString()}`;
+  }
+  return `https://usher.ttvnw.net/api/v2/channel/hls/${channel}.m3u8?${params.toString()}`;
+}
+
+function parseAudioOnlyUrlFromMaster(masterText, masterUrl) {
+  const lines = masterText.split(/\r?\n/);
+  for (let i = 0; i < lines.length - 1; i++) {
+    const info = lines[i] || '';
+    const next = (lines[i + 1] || '').trim();
+    if (!info.includes('#EXT-X-STREAM-INF') || !next || next.startsWith('#')) continue;
+    if (info.includes('VIDEO="none"') || next.includes('audio_only')) {
+      return new URL(next, masterUrl).href;
+    }
+  }
+  return null;
+}
+
+async function resolveAudioOnlyPlaylistUrl(masterUrl, login, tokenValue, signature) {
+  const fetchMaster = async (url) => {
+    const response = await fetch(url, {
+      headers: {
+        'Referer': 'https://player.twitch.tv/',
+        'Origin': 'https://player.twitch.tv'
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`m3u8_fetch_${response.status}`);
+    }
+    return response.text();
+  };
+
+  try {
+    const text = await fetchMaster(masterUrl);
+    return parseAudioOnlyUrlFromMaster(text, masterUrl) || masterUrl;
+  } catch (primaryErr) {
+    const legacyMaster = buildStreamHlsUrl(login, tokenValue, signature, true);
+    if (legacyMaster === masterUrl) throw primaryErr;
+    const text = await fetchMaster(legacyMaster);
+    return parseAudioOnlyUrlFromMaster(text, legacyMaster) || legacyMaster;
+  }
+}
+
+async function startBackgroundAudio(username, meta = {}) {
+  const login = String(username || '').toLowerCase();
+  if (!login) throw new Error('invalid_channel');
+
+  const displayName = meta.displayName || login;
+  const streamTitle = meta.streamTitle || '';
+  const artwork = meta.artwork || '';
+
+  broadcastAudioLoading({ username: login, displayName });
+
+  try {
+    const accessToken = await tracker.ensureAccessToken({ interactive: false });
+    if (!accessToken) {
+      throw new Error('not_authorized');
+    }
+
+    const playbackToken = await getStreamPlaybackAccessToken(login, accessToken);
+    const masterUrl = buildStreamHlsUrl(login, playbackToken.value, playbackToken.signature);
+    const hlsUrl = await resolveAudioOnlyPlaylistUrl(
+      masterUrl,
+      login,
+      playbackToken.value,
+      playbackToken.signature
+    );
+    const volume = await getSavedAudioVolume();
+
+    const playResult = await sendToOffscreenAudio({
+      type: 'offscreen:play',
+      url: hlsUrl,
+      volume,
+      metadata: {
+        username: login,
+        displayName,
+        streamTitle,
+        artwork,
+        extensionName: chrome.i18n.getMessage('extensionName') || ''
+      }
+    });
+    if (!playResult?.ok) {
+      throw new Error(playResult?.error || 'playback_failed');
+    }
+
+    const state = {
+      username: login,
+      displayName,
+      streamTitle,
+      artwork,
+      playing: true,
+      volume,
+      startedAt: Date.now()
+    };
+    await setAudioPlaybackState(state);
+    broadcastAudioLoading(null);
+    return state;
+  } catch (err) {
+    broadcastAudioLoading(null);
+    throw err;
+  }
+}
+
+async function stopBackgroundAudio() {
+  try {
+    await sendToOffscreenAudio({ type: 'offscreen:stop' });
+  } catch (_) {}
+  await setAudioPlaybackState(null);
+  await closeOffscreenAudioDocument();
+}
+
+async function setBackgroundAudioVolume(volume) {
+  const vol = await saveAudioVolume(volume);
+  const currentState = await getAudioPlaybackState();
+  if (!currentState?.playing) {
+    return { volume: vol };
+  }
+  await sendToOffscreenAudio({ type: 'offscreen:volume', volume: vol });
+  const nextState = { ...currentState, volume: vol };
+  await tracker.write({ [STORAGE.audioPlayback]: nextState });
+  return nextState;
+}
+
+async function getBackgroundAudioStatus() {
+  const savedVolume = await getSavedAudioVolume();
+  const state = await getAudioPlaybackState();
+  if (!state?.playing) {
+    return { playing: false, state: null, volume: savedVolume };
+  }
+  try {
+    const offscreenStatus = await sendToOffscreenAudio({ type: 'offscreen:status' });
+    if (!offscreenStatus?.playing) {
+      await setAudioPlaybackState(null);
+      return { playing: false, state: null, volume: savedVolume };
+    }
+  } catch (_) {}
+  return { playing: true, state, volume: state.volume ?? savedVolume };
+}
+
+async function checkBackgroundAudioOffline(twitchLiveMap) {
+  const state = await getAudioPlaybackState();
+  if (!state?.playing || !state.username) return;
+  const liveData = twitchLiveMap?.[state.username];
+  if (!liveData?.channel) {
+    await stopBackgroundAudio();
+  }
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.target === OFFSCREEN_TARGET) return;
+
+  if (msg?.type === 'audio:start') {
+    const login = String(msg.username || '').toLowerCase();
+    const meta = {
+      displayName: msg.displayName || login,
+      streamTitle: msg.streamTitle || '',
+      artwork: msg.artwork || ''
+    };
+    sendResponse({ ok: true, pending: true });
+    startBackgroundAudio(login, meta).catch((e) => {
+      console.error('audio:start error:', e);
+      broadcastAudioFailed(String(e?.message || e));
+    });
+    return false;
+  }
+
   (async () => {
     if (msg?.type === 'streams:list') {
       try {
@@ -2495,6 +2911,41 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     }
     if (msg?.type === 'vods:get') {
       handleVodRequest(msg, sendResponse);
+      return;
+    }
+    if (msg?.type === 'audio:stop') {
+      try {
+        await stopBackgroundAudio();
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e?.message || e) });
+      }
+      return;
+    }
+    if (msg?.type === 'audio:status') {
+      try {
+        const status = await getBackgroundAudioStatus();
+        sendResponse({ ok: true, ...status });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e?.message || e) });
+      }
+      return;
+    }
+    if (msg?.type === 'audio:volume') {
+      try {
+        const state = await setBackgroundAudioVolume(msg.volume);
+        sendResponse({ ok: true, state });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e?.message || e) });
+      }
+      return;
+    }
+    if (msg?.type === 'audio:error') {
+      try {
+        broadcastAudioLoading(null);
+        await stopBackgroundAudio();
+        broadcastAudioStatus(null);
+      } catch (_) {}
       return;
     }
     if (msg?.action === 'openSettings') {

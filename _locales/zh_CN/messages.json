@@ -964,5 +964,53 @@
   "supportDeveloperButton": {
     "message": "支持开发者",
     "description": "支持开发者按钮文字"
+  },
+  "backgroundAudioPlay": {
+    "message": "背景播放",
+    "description": "Background audio play button tooltip"
+  },
+  "backgroundAudioLoading": {
+    "message": "连接中...",
+    "description": "Background audio connecting status"
+  },
+  "backgroundAudioStop": {
+    "message": "停止背景播放",
+    "description": "Background audio stop button tooltip"
+  },
+  "backgroundAudioPlaying": {
+    "message": "正在背景播放：$1",
+    "description": "Background audio bar label",
+    "placeholders": {
+      "channel": {
+        "content": "$1",
+        "example": "StreamerName"
+      }
+    }
+  },
+  "backgroundAudioStarted": {
+    "message": "已开始背景播放 $1",
+    "description": "Background audio started status",
+    "placeholders": {
+      "channel": {
+        "content": "$1",
+        "example": "StreamerName"
+      }
+    }
+  },
+  "backgroundAudioStopped": {
+    "message": "已停止背景播放",
+    "description": "Background audio stopped status"
+  },
+  "backgroundAudioNeedAuth": {
+    "message": "授权已失效，请至设置重新授权后再试",
+    "description": "Background audio auth token invalid or expired"
+  },
+  "backgroundAudioFailed": {
+    "message": "背景播放失败",
+    "description": "Background audio generic error"
+  },
+  "backgroundAudioSource": {
+    "message": "来自此扩展",
+    "description": "Media session source label for background audio"
   }
 }

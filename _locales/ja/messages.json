@@ -964,5 +964,53 @@
   "supportDeveloperButton": {
     "message": "開発者をサポート",
     "description": "開発者サポートボタンテキスト"
+  },
+  "backgroundAudioPlay": {
+    "message": "バックグラウンド再生",
+    "description": "Background audio play button tooltip"
+  },
+  "backgroundAudioLoading": {
+    "message": "接続中...",
+    "description": "Background audio connecting status"
+  },
+  "backgroundAudioStop": {
+    "message": "バックグラウンド再生を停止",
+    "description": "Background audio stop button tooltip"
+  },
+  "backgroundAudioPlaying": {
+    "message": "バックグラウンド再生中：$1",
+    "description": "Background audio bar label",
+    "placeholders": {
+      "channel": {
+        "content": "$1",
+        "example": "StreamerName"
+      }
+    }
+  },
+  "backgroundAudioStarted": {
+    "message": "$1 のバックグラウンド再生を開始しました",
+    "description": "Background audio started status",
+    "placeholders": {
+      "channel": {
+        "content": "$1",
+        "example": "StreamerName"
+      }
+    }
+  },
+  "backgroundAudioStopped": {
+    "message": "バックグラウンド再生を停止しました",
+    "description": "Background audio stopped status"
+  },
+  "backgroundAudioNeedAuth": {
+    "message": "認証の有効期限が切れました。設定から再認証してからお試しください。",
+    "description": "Background audio auth token invalid or expired"
+  },
+  "backgroundAudioFailed": {
+    "message": "バックグラウンド再生に失敗しました",
+    "description": "Background audio generic error"
+  },
+  "backgroundAudioSource": {
+    "message": "この拡張機能から",
+    "description": "Media session source label for background audio"
   }
 }

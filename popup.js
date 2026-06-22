@@ -1,6 +1,9 @@
 let viewerCountSettings = { useKDisplay: false };
 let chatTranslationSettings = { enabled: false, provider: 'microsoft', language: 'zh-tw', customPrefix: '' };
 let sharedChatSourceEnabledState = false;
+let currentAudioState = null;
+let currentAudioLoading = null;
+let isVolumeInteracting = false;
 
 function formatViewerCount(count) {
   const useKDisplayEl = document.getElementById('useKDisplay');
@@ -47,6 +50,332 @@ function formatStreamTime(startTime) {
   const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
   
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function getStreamInfoEl(item) {
+  return item?.querySelector('.stream-info') || null;
+}
+
+function injectStreamAudioBar(item, bar) {
+  const info = getStreamInfoEl(item);
+  info?.querySelector('.stream-audio-bar')?.remove();
+  if (info) {
+    info.appendChild(bar);
+  } else {
+    item?.querySelector('.stream-audio-bar')?.remove();
+    item?.appendChild(bar);
+  }
+}
+
+function styleVolumeSlider(el) {
+  if (!el) return;
+  const min = Number(el.min) || 0;
+  const max = Number(el.max) || 100;
+  const val = ((Number(el.value) - min) / (max - min)) * 100;
+  el.style.setProperty('--vol', `${val}%`);
+  const label = el.closest('.stream-audio-bar')?.querySelector('.stream-audio-volume-label');
+  if (label) label.textContent = `${Math.round(val)}%`;
+}
+
+function clearStreamAudioLoadingUI() {
+  document.querySelectorAll('.stream-item.is-audio-loading .btn-audio').forEach((btn) => {
+    btn.disabled = false;
+  });
+  document.querySelectorAll('.stream-item.is-audio-loading').forEach((item) => {
+    item.classList.remove('is-audio-loading');
+    getStreamInfoEl(item)?.querySelector('.stream-audio-bar.is-loading')?.remove();
+  });
+}
+
+function setStreamAudioLoading(login, loading) {
+  clearStreamAudioLoadingUI();
+  if (!loading) {
+    currentAudioLoading = null;
+    return;
+  }
+
+  const channel = String(login || '').toLowerCase();
+  currentAudioLoading = channel;
+  const item = document.querySelector(`.stream-item[data-username="twitch:${channel}"]`);
+  if (!item) return;
+
+  item.classList.add('is-audio-loading');
+  const btn = item.querySelector('.btn-audio');
+  if (btn) btn.disabled = true;
+
+  const bar = document.createElement('div');
+  bar.className = 'stream-audio-bar is-loading';
+  const loadingText = chrome.i18n.getMessage('backgroundAudioLoading') || '連線中...';
+  bar.innerHTML = `<span class="stream-audio-loading-text">${loadingText}</span>`;
+  bar.addEventListener('click', (e) => e.stopPropagation());
+  injectStreamAudioBar(item, bar);
+}
+
+function syncStreamAudioBar(state) {
+  if (!state?.playing) return false;
+
+  const login = String(state.username || '').toLowerCase();
+  const item = document.querySelector(`.stream-item[data-username="twitch:${login}"]`);
+  if (!item) return false;
+
+  const bar = getStreamInfoEl(item)?.querySelector('.stream-audio-bar:not(.is-loading)');
+  const volumeEl = bar?.querySelector('.stream-audio-volume');
+  if (!item.classList.contains('is-audio-playing') || !volumeEl) return false;
+
+  const vol = typeof state.volume === 'number' ? Math.round(state.volume * 100) : 100;
+  if (!isVolumeInteracting && Number(volumeEl.value) !== vol) {
+    volumeEl.value = String(vol);
+    styleVolumeSlider(volumeEl);
+  }
+
+  document.querySelectorAll('.stream-item .btn-audio').forEach((btn) => {
+    const btnLogin = String(btn.dataset.username || '').toLowerCase();
+    const isActive = btnLogin === login;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+  });
+  return true;
+}
+
+function clearStreamAudioStrips() {
+  document.querySelectorAll('.stream-item.is-audio-playing').forEach((item) => {
+    item.classList.remove('is-audio-playing');
+    getStreamInfoEl(item)?.querySelector('.stream-audio-bar')?.remove();
+  });
+}
+
+function bindStreamAudioBar(bar) {
+  const volumeEl = bar.querySelector('.stream-audio-volume');
+  const item = bar.closest('.stream-item');
+
+  const startVolumeDrag = () => {
+    isVolumeInteracting = true;
+    item?.classList.add('is-volume-dragging');
+  };
+  const endVolumeDrag = () => {
+    isVolumeInteracting = false;
+    item?.classList.remove('is-volume-dragging');
+  };
+
+  volumeEl?.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    startVolumeDrag();
+    if (volumeEl.setPointerCapture && e.pointerId != null) {
+      try { volumeEl.setPointerCapture(e.pointerId); } catch (_) {}
+    }
+    const onPointerEnd = () => {
+      if (volumeEl.releasePointerCapture && e.pointerId != null) {
+        try { volumeEl.releasePointerCapture(e.pointerId); } catch (_) {}
+      }
+      endVolumeDrag();
+      document.removeEventListener('pointerup', onPointerEnd);
+      document.removeEventListener('pointercancel', onPointerEnd);
+    };
+    document.addEventListener('pointerup', onPointerEnd);
+    document.addEventListener('pointercancel', onPointerEnd);
+  });
+
+  volumeEl?.addEventListener('input', (e) => {
+    e.stopPropagation();
+    styleVolumeSlider(volumeEl);
+    const volume = Number(volumeEl.value) / 100;
+    chrome.runtime.sendMessage({ type: 'audio:volume', volume }, (response) => {
+      if (chrome.runtime.lastError || !response?.ok) return;
+      if (response.state?.volume != null && currentAudioState) {
+        currentAudioState = { ...currentAudioState, volume: response.state.volume };
+      }
+    });
+  });
+  volumeEl?.addEventListener('click', (e) => e.stopPropagation());
+  bar.addEventListener('click', (e) => e.stopPropagation());
+  styleVolumeSlider(volumeEl);
+}
+
+function createStreamAudioBar(state) {
+  const bar = document.createElement('div');
+  bar.className = 'stream-audio-bar';
+  const vol = typeof state.volume === 'number' ? Math.round(state.volume * 100) : 100;
+  bar.innerHTML = `
+    <svg class="stream-audio-speaker" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+    </svg>
+    <input type="range" class="stream-audio-volume" min="0" max="100" value="${vol}" aria-label="Volume">
+    <span class="stream-audio-volume-label" aria-hidden="true">${vol}%</span>
+  `;
+  bindStreamAudioBar(bar);
+  return bar;
+}
+
+function updateAudioBar(state) {
+  if (isVolumeInteracting && state?.playing) {
+    currentAudioState = state;
+    syncStreamAudioBar(state);
+    return;
+  }
+
+  const pendingLoading = currentAudioLoading;
+  currentAudioState = state || null;
+
+  if (state?.playing && syncStreamAudioBar(state)) {
+    return;
+  }
+
+  clearStreamAudioStrips();
+
+  document.querySelectorAll('.stream-item .btn-audio').forEach((btn) => {
+    const login = String(btn.dataset.username || '').toLowerCase();
+    const isActive = !!(state?.playing && login === String(state.username || '').toLowerCase());
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+  });
+
+  if (state?.playing) {
+    currentAudioLoading = null;
+    clearStreamAudioLoadingUI();
+
+    const login = String(state.username || '').toLowerCase();
+    const item = document.querySelector(`.stream-item[data-username="twitch:${login}"]`);
+    if (!item) return;
+
+    item.classList.add('is-audio-playing');
+    injectStreamAudioBar(item, createStreamAudioBar(state));
+    return;
+  }
+
+  if (pendingLoading) {
+    setStreamAudioLoading(pendingLoading, true);
+  } else {
+    clearStreamAudioLoadingUI();
+  }
+}
+
+function refreshAudioStatus() {
+  chrome.runtime.sendMessage({ type: 'audio:status' }, (response) => {
+    if (chrome.runtime.lastError || !response?.ok) return;
+    updateAudioBar(response.playing ? response.state : null);
+  });
+}
+
+function stopBackgroundAudioIfMatching(login, { notify = false } = {}) {
+  const channel = String(login || '').toLowerCase();
+  if (
+    !currentAudioState?.playing ||
+    String(currentAudioState.username || '').toLowerCase() !== channel
+  ) {
+    return;
+  }
+
+  chrome.runtime.sendMessage({ type: 'audio:stop' }, (response) => {
+    if (chrome.runtime.lastError) {
+      if (notify) showStatus(`❌ ${chrome.runtime.lastError.message}`, 'error');
+      return;
+    }
+    if (response?.ok) {
+      setStreamAudioLoading(null, false);
+      updateAudioBar(null);
+      if (notify) {
+        showStatus(chrome.i18n.getMessage('backgroundAudioStopped'), 'success');
+      }
+    }
+  });
+}
+
+function toggleBackgroundAudio(stream) {
+  const login = String(stream?.username || '').toLowerCase();
+  const displayName = stream?.channel?.display_name || stream?.displayName || login;
+  const streamTitle = stream?.channel?.status || stream?.title || '';
+  const artwork = stream?.channel?.profile_image_url || '';
+  const isPlayingSame =
+    currentAudioState?.playing &&
+    String(currentAudioState.username || '').toLowerCase() === login;
+
+  if (isPlayingSame) {
+    stopBackgroundAudioIfMatching(login, { notify: true });
+    return;
+  }
+
+  if (currentAudioState?.playing) {
+    clearStreamAudioStrips();
+    document.querySelectorAll('.stream-item .btn-audio.active').forEach((btn) => {
+      btn.classList.remove('active');
+      btn.setAttribute('aria-pressed', 'false');
+    });
+  }
+  setStreamAudioLoading(login, true);
+  chrome.runtime.sendMessage({
+    type: 'audio:start',
+    username: login,
+    displayName,
+    streamTitle,
+    artwork
+  }, (response) => {
+    if (chrome.runtime.lastError) {
+      setStreamAudioLoading(null, false);
+      showStatus(`❌ ${chrome.runtime.lastError.message}`, 'error');
+      return;
+    }
+    if (response?.pending) {
+      return;
+    }
+    if (response?.ok) {
+      updateAudioBar(response.state);
+      showStatus(chrome.i18n.getMessage('backgroundAudioStarted', [displayName]), 'success');
+    } else {
+      setStreamAudioLoading(null, false);
+      if (response?.error === 'not_authorized') {
+        showStatus(chrome.i18n.getMessage('backgroundAudioNeedAuth'), 'error');
+      } else {
+        showStatus(`❌ ${response?.error || chrome.i18n.getMessage('backgroundAudioFailed')}`, 'error');
+      }
+    }
+  });
+}
+
+function attachAudioPlayButton(item, stream) {
+  if (stream.platform === 'kick') return;
+
+  const login = String(stream.username || '').toLowerCase();
+  const btn = document.createElement('button');
+  btn.className = 'btn-audio';
+  btn.dataset.username = login;
+  btn.setAttribute('aria-label', chrome.i18n.getMessage('backgroundAudioPlay'));
+  btn.setAttribute('aria-pressed', 'false');
+  btn.innerHTML = '<svg class="audio-icon" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>';
+
+  if (
+    currentAudioState?.playing &&
+    String(currentAudioState.username || '').toLowerCase() === login
+  ) {
+    btn.classList.add('active');
+    btn.setAttribute('aria-pressed', 'true');
+  } else if (currentAudioLoading === login) {
+    btn.disabled = true;
+  }
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (btn.disabled) return;
+    toggleBackgroundAudio(stream);
+  });
+
+  btn.addEventListener('mouseenter', (e) => {
+    const tip = btn.disabled
+      ? (chrome.i18n.getMessage('backgroundAudioLoading') || '連線中...')
+      : currentAudioState?.playing &&
+        String(currentAudioState.username || '').toLowerCase() === login
+        ? chrome.i18n.getMessage('backgroundAudioStop')
+        : chrome.i18n.getMessage('backgroundAudioPlay');
+    showUnifiedTooltip(e, tip);
+  });
+  btn.addEventListener('mousemove', (e) => moveUnifiedTooltip(e));
+  btn.addEventListener('mouseleave', () => hideUnifiedTooltip());
+
+  item.appendChild(btn);
+}
+
+function initAudioBarControls() {
+  refreshAudioStatus();
 }
 
 function switchTab(tabName) {
@@ -1022,6 +1351,7 @@ async function renderStreamList(streams, settings) {
       const existingOfflineSection = streamList.querySelector('.offline-section');
       if (existingOfflineSection) existingOfflineSection.remove();
       setupStreamTitleTooltips();
+      updateAudioBar(currentAudioState);
       resolve();
     });
   });
@@ -1347,6 +1677,9 @@ async function createStreamItem(stream, settings) {
     }
   
   item.addEventListener('click', () => {
+      if (!isKick) {
+        stopBackgroundAudioIfMatching(stream.username);
+      }
       const url = isKick ? `https://kick.com/${stream.username}` : `https://www.twitch.tv/${stream.username}`;
       chrome.tabs.create({ url });
     });
@@ -1533,6 +1866,7 @@ async function createStreamItem(stream, settings) {
         });
       });
     } catch (_) {}
+    attachAudioPlayButton(item, stream);
     if (removeBtn) {
       item.appendChild(removeBtn);
     }
@@ -2718,6 +3052,7 @@ function deleteAllKickChannels() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+      initAudioBarControls();
       const settingsElements = ['muteNotifications', 'hidePreviews', 'pollMinutes', 'autoFollow', 'translationEnabled', 'translationProvider', 'targetLanguage', 'customPrefix', 'useKDisplay'];
   settingsElements.forEach(id => {
     const element = document.getElementById(id);
@@ -2923,7 +3258,36 @@ chrome.runtime.onMessage.addListener((msg) => {
         return;
       }
       await renderStreamList(msg.payload || [], res?.settings || {});
+      updateAudioBar(currentAudioState);
     });
+  }
+  if (msg?.type === 'audio:status') {
+    const wasPlaying = !!currentAudioState?.playing;
+    const prevLogin = String(currentAudioState?.username || '').toLowerCase();
+    updateAudioBar(msg.state || null);
+    if (msg.state?.playing) {
+      const nextLogin = String(msg.state.username || '').toLowerCase();
+      if (!wasPlaying || prevLogin !== nextLogin) {
+        const name = msg.state.displayName || msg.state.username || '';
+        showStatus(chrome.i18n.getMessage('backgroundAudioStarted', [name]), 'success');
+      }
+    }
+  }
+  if (msg?.type === 'audio:loading') {
+    if (msg.loading?.username) {
+      setStreamAudioLoading(msg.loading.username, true);
+    } else {
+      setStreamAudioLoading(null, false);
+    }
+  }
+  if (msg?.type === 'audio:failed') {
+    setStreamAudioLoading(null, false);
+    updateAudioBar(null);
+    if (msg.error === 'not_authorized') {
+      showStatus(chrome.i18n.getMessage('backgroundAudioNeedAuth'), 'error');
+    } else {
+      showStatus(`❌ ${msg.error || chrome.i18n.getMessage('backgroundAudioFailed')}`, 'error');
+    }
   }
 });
 

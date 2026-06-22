@@ -150,11 +150,50 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 8px;
         position: fixed;
         bottom: 43px;
         left: 0;
         right: 0;
         z-index: 15;
+      }
+
+      .search-container {
+        padding: 8px 16px;
+        border-bottom: 1px solid var(--border-light);
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 25;
+        background: var(--bg-primary);
+      }
+
+      .search-container-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .search-container-row input[type="text"] {
+        width: 200px;
+        padding: 4px 8px;
+        border: 1px solid var(--border-medium);
+        border-radius: var(--radius-sm);
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        font-size: 12px;
+        height: 28px;
+        flex-shrink: 1;
+        min-width: 0;
+      }
+
+      .search-container .user-profile {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
       }
 
       .update-info {
@@ -390,6 +429,11 @@
         transform: translateY(-1px);
       }
 
+      .stream-item.is-audio-playing:hover,
+      .stream-item.is-volume-dragging {
+        transform: none;
+      }
+
       .stream-item.fade-in {
         animation: fadeIn 0.3s ease-out;
       }
@@ -515,6 +559,187 @@
         stroke: currentColor;
         fill: none;
         transition: all 0.2s ease;
+      }
+
+      .stream-item .btn-audio {
+        position: absolute;
+        right: 36px;
+        top: 6px;
+        width: 24px;
+        height: 24px;
+        border: none;
+        background: rgba(0,0,0,0.6);
+        color: #fff;
+        border-radius: 6px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.2s ease;
+        backdrop-filter: blur(8px);
+        z-index: 2;
+      }
+
+      .stream-item:has(.remove-btn) .btn-audio {
+        right: 66px;
+      }
+
+      .stream-item:hover .btn-audio {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      .stream-item:hover .btn-audio:hover,
+      .stream-item:hover .btn-audio.active {
+        background: rgba(99, 102, 241, 0.95);
+        color: #ffffff;
+      }
+
+      .stream-item .btn-audio .audio-icon {
+        width: 12px;
+        height: 12px;
+      }
+
+      .stream-item.is-audio-playing {
+        border-color: var(--primary);
+      }
+
+      .stream-audio-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        min-width: 0;
+        transition: max-height 0.2s ease, opacity 0.2s ease, margin-top 0.2s ease;
+      }
+
+      .stream-item.is-audio-playing .stream-audio-bar:not(.is-loading) {
+        max-height: 0;
+        margin-top: 0;
+        opacity: 0;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      .stream-item.is-audio-playing:hover .stream-audio-bar:not(.is-loading),
+      .stream-item.is-audio-playing .stream-audio-bar:not(.is-loading):focus-within,
+      .stream-item.is-audio-playing.is-volume-dragging .stream-audio-bar:not(.is-loading),
+      .stream-item.is-audio-playing .stream-audio-bar:not(.is-loading):has(.stream-audio-volume:active) {
+        max-height: 24px;
+        margin-top: 8px;
+        opacity: 1;
+        overflow: visible;
+        pointer-events: auto;
+      }
+
+      .stream-item.is-volume-dragging .stream-audio-bar:not(.is-loading),
+      .stream-item.is-audio-playing .stream-audio-bar:not(.is-loading):has(.stream-audio-volume:active) {
+        transition: none;
+      }
+
+      .stream-audio-speaker {
+        width: 14px;
+        height: 14px;
+        color: var(--text-muted);
+        flex-shrink: 0;
+      }
+
+      .stream-audio-bar .stream-audio-volume {
+        flex: 1;
+        min-width: 0;
+        height: 3px;
+        margin: 0;
+        padding: 0;
+        border: none;
+        border-radius: 2px;
+        outline: none;
+        cursor: pointer;
+        -webkit-appearance: none;
+        appearance: none;
+        background: linear-gradient(
+          to right,
+          var(--primary) 0%,
+          var(--primary) var(--vol, 50%),
+          var(--border-medium) var(--vol, 50%),
+          var(--border-medium) 100%
+        );
+      }
+
+      .stream-audio-volume-label {
+        flex-shrink: 0;
+        min-width: 28px;
+        color: var(--text-muted);
+        font-size: 10px;
+        font-weight: 500;
+        line-height: 1;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .stream-audio-bar .stream-audio-volume::-webkit-slider-runnable-track {
+        height: 3px;
+        border-radius: 2px;
+        background: transparent;
+      }
+
+      .stream-audio-bar .stream-audio-volume::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 10px;
+        height: 10px;
+        margin-top: -3.5px;
+        border-radius: 50%;
+        background: var(--primary);
+        border: none;
+        box-shadow: none;
+        cursor: pointer;
+      }
+
+      .stream-audio-bar .stream-audio-volume::-moz-range-track {
+        height: 3px;
+        border-radius: 2px;
+        background: var(--border-medium);
+        border: none;
+      }
+
+      .stream-audio-bar .stream-audio-volume::-moz-range-progress {
+        height: 3px;
+        border-radius: 2px;
+        background: var(--primary);
+      }
+
+      .stream-audio-bar .stream-audio-volume::-moz-range-thumb {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--primary);
+        border: none;
+        box-shadow: none;
+        cursor: pointer;
+      }
+
+      .stream-item.is-audio-loading {
+        border-color: var(--primary-light);
+      }
+
+      .stream-audio-bar.is-loading {
+        margin-top: 8px;
+        color: var(--text-muted);
+        font-size: 11px;
+        font-weight: 500;
+        line-height: 1;
+      }
+
+      .stream-audio-loading-text {
+        color: var(--text-muted);
+        white-space: nowrap;
+      }
+
+      .stream-item .btn-audio:disabled {
+        opacity: 0.45;
+        cursor: default;
+        pointer-events: none;
       }
 
       .stream-info {
@@ -2140,17 +2365,19 @@
 
     <div class="content">
       <div class="tab-content active" id="streamsContent">
-        <div class="search-container" style="padding: 8px 16px; border-bottom: 1px solid var(--border-light); position: fixed; top: 0; left: 0; right: 0; z-index: 25; background: var(--bg-primary);">
-          <input type="text" id="streamsSearch" placeholder="" data-i18n-placeholder="searchStreams" style="width: 200px; padding: 4px 8px; border: 1px solid var(--border-medium); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary); font-size: 12px; height: 28px; float: left;">
-          <div class="user-profile" style="display: flex; align-items: center; gap: 8px; float: right;">
-            <img id="userAvatar" src="" alt="User Avatar" style="width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--primary); object-fit: cover; display: none;">
-            <span id="userName" style="font-size: 12px; font-weight: 600; color: var(--text-primary); display: none;"></span>
-            <button id="headerAuthBtn" class="btn-primary" style="display: none; padding: 4px 8px; font-size: 11px; height: 28px;">
-              <span data-i18n="authorizeTwitchAccount"></span>
-            </button>
+        <div class="search-container" id="streamsSearchContainer">
+          <div class="search-container-row">
+            <input type="text" id="streamsSearch" placeholder="" data-i18n-placeholder="searchStreams">
+            <div class="user-profile">
+              <img id="userAvatar" src="" alt="User Avatar" style="width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--primary); object-fit: cover; display: none;">
+              <span id="userName" style="font-size: 12px; font-weight: 600; color: var(--text-primary); display: none;"></span>
+              <button id="headerAuthBtn" class="btn-primary" style="display: none; padding: 4px 8px; font-size: 11px; height: 28px;">
+                <span data-i18n="authorizeTwitchAccount"></span>
+              </button>
+            </div>
           </div>
         </div>
-        <div class="status-bar">
+        <div class="status-bar" id="streamsStatusBar">
           <span id="status" data-i18n="loading">Loading...</span>
           <div class="update-info" id="updateInfo" style="display: none;">
             <div class="countdown-timer">
